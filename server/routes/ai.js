@@ -102,4 +102,31 @@ Include: Title, Badges, Description, Features, Tech Stack, Installation, Usage, 
   }
 });
 
+// Refactor Code
+router.post('/refactor', authMiddleware, async (req, res) => {
+  try {
+    const { code, filename } = req.body;
+
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert code refactoring assistant. Refactor the given code to be cleaner, more efficient, and follow best practices. Return ONLY the refactored code with brief comments explaining changes. No explanations outside the code.'
+        },
+        {
+          role: 'user',
+          content: `Refactor this code from file "${filename}":\n\n${code}`
+        }
+      ],
+      max_tokens: 2048,
+      temperature: 0.3
+    });
+
+    res.json({ refactoredCode: response.choices[0].message.content });
+  } catch (err) {
+    res.status(500).json({ message: 'AI error', error: err.message });
+  }
+});
+
 module.exports = router;

@@ -531,6 +531,7 @@ function App() {
   const [botTyping, setBotTyping] = useState(false);
   const [activeFile, setActiveFile] = useState('src/App.jsx');
   const [codeContent, setCodeContent] = useState('');
+  const [repoFilesList, setRepoFilesList] = useState([]);
   const [commits, setCommits] = useState([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
 
@@ -610,12 +611,44 @@ function App() {
 
   // Sync code view when repository changes
   useEffect(() => {
-    const files = {};
-    const defaultFile = Object.keys(files)[0] || '';
-    setActiveFile(defaultFile);
-    setCodeContent(files[defaultFile] || '');
-    setHasRefactored(false);
-  }, [activeRepo]);
+  const fetchFileContent = async () => {
+    const token = localStorage.getItem('token');
+    if (!token || !activeRepo) return;
+
+    try {
+      const repoName = activeRepo.split('/')[1];
+      const response = await axios.get(
+        `http://localhost:5000/api/github/repos/${repoName}/file`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCodeContent(response.data.content);
+      setActiveFile(response.data.path);
+      setHasRefactored(false);
+    } catch (err) {
+      console.error('Failed to fetch file:', err);
+      setCodeContent('// Could not load file content');
+    }
+  };
+
+  fetchFileContent();
+
+    // Fetch file list for sidebar
+    const fetchFilesList = async () => {
+      const token = localStorage.getItem('token');
+      if (!token || !activeRepo) return;
+      try {
+        const repoName = activeRepo.split('/')[1];
+        const response = await axios.get(
+          `http://localhost:5000/api/github/repos/${repoName}/files`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setRepoFilesList(response.data.files);
+      } catch (err) {
+        console.error('Failed to fetch files list:', err);
+      }
+    };
+    fetchFilesList();
+}, [activeRepo]);
 
   // Typing simulator on landing page hero terminal
   useEffect(() => {
@@ -753,35 +786,47 @@ function App() {
   };
 
   // Accept Code Studio Refactor recommendation
-  const handleApplyRefactor = () => {
-    setRefactorAnimation(true);
-    setBotStatus('busy');
-    setBotTyping(true);
+  const handleApplyRefactor = async () => {
+  setRefactorAnimation(true);
+  setBotStatus('busy');
+  setBotTyping(true);
 
-    setTimeout(() => {
-      // Modify code view with updated lines
-      const originalCode = codeContent;
-      const refactoredText = originalCode.replace(
-        '// Sync core logic',
-        `// Refactored with AI: Optimized particle rendering coordinates\n  const particleCache = React.useMemo(() => {\n    return computeExpensiveParticlePaths();\n  }, []);`
-      ).replace(
-        '// Floating mathematics animation',
-        `// Optimized layout float via sinusoidal cache\n    const animationSpeed = 4;\n    controls.start({\n      y: Math.sin(time) * 12,\n      transition: { ease: "linear" }\n    });`
-      );
-      setCodeContent(refactoredText);
-      setHasRefactored(true);
-      setRefactorAnimation(false);
-      setBotStatus('online');
-      setBotTyping(false);
-      
-      // Post notification to chat
-      setWorkspaceMessages(prev => [...prev, {
-        id: Date.now(),
-        text: `⚡ **Inline Refactoring Patch Applied to \`${activeFile}\`:**\n\nAI optimization injected. Loop latency minimized from **16ms** to **2.4ms**. Sandbox compiled in **32ms**.`,
-        sender: 'bot'
-      }]);
-    }, 1500);
-  };
+  try {
+    const token = localStorage.getItem('token');
+    
+    const response = await axios.post(
+      'http://localhost:5000/api/ai/refactor',
+      {
+        code: codeContent,
+        filename: activeFile
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    setCodeContent(response.data.refactoredCode);
+    setHasRefactored(true);
+
+    // Post success notification to chat
+    setWorkspaceMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `⚡ **AI Refactor Complete for \`${activeFile}\`:**\n\n${response.data.refactoredCode.substring(0, 200)}...`,
+      sender: 'bot'
+    }]);
+
+  } catch (err) {
+    setWorkspaceMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `❌ Refactor failed. Please try again.`,
+      sender: 'bot'
+    }]);
+  } finally {
+    setRefactorAnimation(false);
+    setBotStatus('online');
+    setBotTyping(false);
+  }
+};
 
   // Login form handler
   const handleLoginSubmit = async (e) => {
@@ -926,7 +971,6 @@ function App() {
     return null;
   }
   if (cleanPath === '/devbot') {
-    const repoFiles = {};
 
     return (
       <Layout currentPath={cleanPath} navigateTo={navigateTo}>
@@ -990,14 +1034,24 @@ function App() {
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '4px', marginTop: '6px' }}>
-                {Object.keys(repoFiles).map((filename) => {
+                {repoFilesList.map((filename) => {
                   const isSelected = activeFile === filename;
                   return (
                     <div
                       key={filename}
                       onClick={() => {
                         setActiveFile(filename);
-                        setCodeContent(repoFiles[filename]);
+                        // Fetch file content when clicked
+const fetchFile = async () => {
+  const token = localStorage.getItem('token');
+  const repoName = activeRepo.split('/')[1];
+  const res = await axios.get(
+    `http://localhost:5000/api/github/repos/${repoName}/file?path=${filename}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  setCodeContent(res.data.content);
+};
+fetchFile();
                         setHasRefactored(false);
                         setActiveTab('code'); // Switch to Code Studio
                       }}
@@ -1312,7 +1366,7 @@ function App() {
                   </div>
 
                   {/* Code Inline Suggestions Overlay Bar */}
-                  {!hasRefactored && (activeFile.includes('.jsx') || activeFile.includes('.ts')) && (
+                  {!hasRefactored && codeContent && (
                     <motion.div 
                       initial={{ y: 50, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
