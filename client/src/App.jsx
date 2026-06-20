@@ -532,6 +532,9 @@ function App() {
   const [activeFile, setActiveFile] = useState('src/App.jsx');
   const [codeContent, setCodeContent] = useState('');
   const [repoFilesList, setRepoFilesList] = useState([]);
+  const [auditData, setAuditData] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+
   const [commits, setCommits] = useState([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
 
@@ -611,28 +614,25 @@ function App() {
 
   // Sync code view when repository changes
   useEffect(() => {
-  const fetchFileContent = async () => {
-    const token = localStorage.getItem('token');
-    if (!token || !activeRepo) return;
+    const fetchFileContent = async () => {
+      const token = localStorage.getItem('token');
+      if (!token || !activeRepo) return;
 
-    try {
-      const repoName = activeRepo.split('/')[1];
-      const response = await axios.get(
-        `http://localhost:5000/api/github/repos/${repoName}/file`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setCodeContent(response.data.content);
-      setActiveFile(response.data.path);
-      setHasRefactored(false);
-    } catch (err) {
-      console.error('Failed to fetch file:', err);
-      setCodeContent('// Could not load file content');
-    }
-  };
+      try {
+        const repoName = activeRepo.split('/')[1];
+        const response = await axios.get(
+          `http://localhost:5000/api/github/repos/${repoName}/file`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setCodeContent(response.data.content);
+        setActiveFile(response.data.path);
+        setHasRefactored(false);
+      } catch (err) {
+        console.error('Failed to fetch file:', err);
+        setCodeContent('// Could not load file content');
+      }
+    };
 
-  fetchFileContent();
-
-    // Fetch file list for sidebar
     const fetchFilesList = async () => {
       const token = localStorage.getItem('token');
       if (!token || !activeRepo) return;
@@ -647,8 +647,30 @@ function App() {
         console.error('Failed to fetch files list:', err);
       }
     };
+
+    const fetchSecurityAudit = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  try {
+    setAuditLoading(true);
+    const owner = activeRepo.split('/')[0];
+    const repoName = activeRepo.split('/')[1];
+    const response = await axios.get(
+      `http://localhost:5000/api/github/security/audit?repo=${repoName}&owner=${owner}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setAuditData(response.data);
+  } catch (err) {
+    console.error('Security audit failed:', err);
+  } finally {
+    setAuditLoading(false);
+  }
+};
+
+    fetchFileContent();
     fetchFilesList();
-}, [activeRepo]);
+    fetchSecurityAudit();
+  }, [activeRepo]);
 
   // Typing simulator on landing page hero terminal
   useEffect(() => {
@@ -1492,43 +1514,102 @@ fetchFile();
 
               {/* TAB 4: SECURITY AUDIT */}
               {activeTab === 'security' && (
-                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
-                  <div>
-                    <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '6px' }}>Security Audit Log</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Scans branch vulnerabilities, dependency keys, and package lock logs.</p>
-                  </div>
+                (() => {
+                  const counts = auditData?.counts || { critical: 0, high: 0, moderate: 0, low: 0, info: 0 };
+                  const vulnerabilities = auditData?.vulnerabilities || [];
+                  const totalIssues = counts.critical + counts.high + counts.moderate + counts.low + (counts.info || 0);
+                  const scannedAt = auditData?.scannedAt ? new Date(auditData.scannedAt).toLocaleString() : 'Not scanned yet';
+                  const severityStyles = {
+                    critical: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.25)' },
+                    high: { color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)', border: 'rgba(249, 115, 22, 0.25)' },
+                    moderate: { color: '#FACC15', bg: 'rgba(250, 204, 21, 0.1)', border: 'rgba(250, 204, 21, 0.25)' },
+                    low: { color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.25)' },
+                    info: { color: 'var(--primary-cyan)', bg: 'rgba(34, 211, 238, 0.08)', border: 'rgba(34, 211, 238, 0.2)' }
+                  };
+                  const statCards = [
+                    { title: 'Critical', value: counts.critical, color: severityStyles.critical.color },
+                    { title: 'High', value: counts.high, color: severityStyles.high.color },
+                    { title: 'Moderate', value: counts.moderate, color: severityStyles.moderate.color },
+                    { title: 'Low', value: counts.low, color: severityStyles.low.color },
+                    { title: 'Total Deps', value: auditData?.totalDependencies ?? 0, color: 'var(--primary-cyan)' },
+                    { title: 'Status', value: totalIssues > 0 ? 'Review' : 'Clean', color: totalIssues > 0 ? severityStyles.moderate.color : '#10B981' }
+                  ];
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                    {[
-                      { title: 'Secured Lockfiles', value: '100% Signed', color: '#10B981' },
-                      { title: 'Ports Containerized', value: 'Isolated', color: 'var(--primary-cyan)' },
-                      { title: 'Vulnerabilities Found', value: '0 Critical', color: '#10B981' }
-                    ].map((stat, i) => (
-                      <div key={i} className="glass" style={{ padding: '16px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.15)' }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{stat.title}</div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, color: stat.color, marginTop: '8px' }}>{stat.value}</div>
+                  return (
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
+                      <div>
+                        <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '6px' }}>Security Audit Log</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Live dependency vulnerability scan for {activeRepo}. Last scanned: {scannedAt}</p>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="glass" style={{ padding: '20px', background: '#02040a', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'white', marginBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
-                      <Terminal size={14} color="#10B981" />
-                      Security scan stdout logs
+                      {auditLoading ? (
+                        <div className="glass" style={{ minHeight: '260px', padding: '32px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(34, 211, 238, 0.15)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                          <RefreshCw className="animate-spin" size={28} color="var(--primary-cyan)" style={{ animation: 'spin 2s linear infinite' }} />
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'white' }}>Running dependency audit...</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Resolving package tree and vulnerability advisories</div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
+                            {statCards.map((stat) => (
+                              <div key={stat.title} className="glass" style={{ padding: '16px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.15)' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{stat.title}</div>
+                                <div style={{ fontSize: '20px', fontWeight: 700, color: stat.color, marginTop: '8px' }}>{stat.value}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="glass" style={{ padding: '20px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: 'white', marginBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Shield size={14} color="var(--primary-cyan)" />
+                                Vulnerabilities
+                              </div>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{totalIssues} issue{totalIssues === 1 ? '' : 's'} detected</span>
+                            </div>
+
+                            {vulnerabilities.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {vulnerabilities.map((vuln, i) => {
+                                  const severity = (vuln.severity || 'info').toLowerCase();
+                                  const severityStyle = severityStyles[severity] || severityStyles.info;
+                                  const viaList = Array.isArray(vuln.via) ? vuln.via : [];
+
+                                  return (
+                                    <div key={`${vuln.name || 'vulnerability'}-${i}`} className="glass" style={{ padding: '16px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${severityStyle.border}`, display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                      <div style={{ minWidth: '220px', flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>{vuln.name || 'Unknown package'}</span>
+                                          <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', color: severityStyle.color, background: severityStyle.bg, border: `1px solid ${severityStyle.border}`, padding: '3px 8px', borderRadius: '4px' }}>
+                                            {severity}
+                                          </span>
+                                          {vuln.fixAvailable && (
+                                            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 8px', borderRadius: '4px' }}>
+                                              FIX AVAILABLE
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                                          {viaList.length > 0 ? viaList.map((item) => typeof item === 'string' ? item : item?.title || item?.name || 'Advisory').join(', ') : 'No advisory details provided.'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div style={{ padding: '44px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <CheckCircle2 size={28} color="#10B981" style={{ margin: '0 auto 12px' }} />
+                                <div style={{ fontSize: '13px', color: 'white', fontWeight: 700 }}>No vulnerabilities found</div>
+                                <div style={{ fontSize: '11px', marginTop: '6px' }}>Dependency audit returned a clean result.</div>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    
-                    <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#8892b0', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
-                      {`[INFO] Starting audit scan for: ${activeRepo}
-[INFO] Resolving dependency graph lock file tree...
-[INFO] Auditing 1,842 nested dependency nodes...
-[SUCCESS] Lockfiles signed by secure registries.
-[WARN] Low vulnerability warning: minimist@1.2.5 deep dependency nesting.
-[INFO] Checking listening ports closure state...
-[SUCCESS] Port config container isolated. No public exposure vector.
-[SUCCESS] Security Scan complete. 0 critical, 0 high, 1 low severity warnings.`}
-                    </pre>
-                  </div>
-                </div>
+                  );
+                })()
               )}
 
               {/* TAB 5: ANALYTICS & DIAGNOSTICS */}
