@@ -534,6 +534,7 @@ function App() {
   const [repoFilesList, setRepoFilesList] = useState([]);
   const [auditData, setAuditData] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
 
   const [commits, setCommits] = useState([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
@@ -667,9 +668,61 @@ function App() {
   }
 };
 
+    // Fetch analytics data
+    const fetchAnalytics = async () => {
+      const token = localStorage.getItem('token');
+      if (!token || !activeRepo) {
+        setAnalyticsData(null);
+        return;
+      }
+
+      try {
+        const repoName = activeRepo.split('/')[1];
+
+        // Fetch commits for analytics
+        const commitsRes = await axios.get(
+          `http://localhost:5000/api/github/repos/${repoName}/commits`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const commits = commitsRes.data || [];
+
+        // Calculate real metrics
+        const totalCommits = commits.length;
+        const recentCommits = commits.filter(c => {
+          const date = new Date(c.date);
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return date > weekAgo;
+        }).length;
+
+        const velocityScore = Math.min(100, recentCommits * 20);
+        const syncScore = Math.min(100, totalCommits * 10);
+
+        // Build chart points from commit dates
+        const chartPoints = commits.slice(0, 6).map((c, i) => ({
+          x: i * 90,
+          y: Math.max(20, 180 - (i * 25))
+        }));
+
+        setAnalyticsData({
+          totalCommits,
+          recentCommits,
+          velocityScore,
+          syncScore,
+          chartPoints,
+          lastCommit: commits[0]?.date || null
+        });
+      } catch (err) {
+        console.error('Analytics fetch failed:', err);
+        setAnalyticsData(null);
+      }
+    };
+
     fetchFileContent();
     fetchFilesList();
     fetchSecurityAudit();
+    fetchAnalytics();
   }, [activeRepo]);
 
   // Typing simulator on landing page hero terminal
@@ -744,46 +797,58 @@ function App() {
     }
   }, [currentPath]);
 
-  const handleSendWorkspaceMsg = (textToSend = chatInput) => {
-    if (!textToSend.trim()) return;
+  const handleSendWorkspaceMsg = async (textToSend = chatInput) => {
+  if (!textToSend.trim()) return;
 
-    const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
-    setWorkspaceMessages(prev => [...prev, userMsg]);
-    setChatInput('');
-    setBotStatus('busy');
-    setBotTyping(true);
+  const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
+  setWorkspaceMessages(prev => [...prev, userMsg]);
+  setChatInput('');
+  setBotStatus('busy');
+  setBotTyping(true);
 
-    // AI thinking latency simulation
-    setTimeout(() => {
-      let replyText = "";
-      const lower = textToSend.toLowerCase();
+  // Handle tab switching based on keywords
+  const lower = textToSend.toLowerCase();
+  if (lower.includes('security') || lower.includes('audit')) {
+    setActiveTab('security');
+  } else if (lower.includes('analytics') || lower.includes('optimize')) {
+    setActiveTab('analytics');
+  } else if (lower.includes('search') || lower.includes('semantic')) {
+    setActiveTab('search');
+  } else if (lower.includes('code') || lower.includes('refactor')) {
+    setActiveTab('code');
+  }
 
-      if (lower.includes('optimize') || lower.includes('optimization')) {
-        replyText = `⚡ **AI Optimization Scan Completed for \`${activeRepo}\`:**\n\n- **Render Loop Patch**: Inside \`Layout.jsx\`, we detected an un-memoized canvas coordinate loop. Suggest caching math functions.\n- **Bundle Overhead**: Package size reduced by **18KB** after shifting unused layouts to lazy chunks.\n- **Diagnostic Speed**: Rendering latency fell from **16ms** to **3ms** (Velocity boosted!).`;
-        setActiveTab('analytics');
-      } else if (lower.includes('security') || lower.includes('scan') || lower.includes('audit')) {
-        replyText = `🛡️ **Vulnerability Security Scan Complete:**\n\n- **Target**: Lockfiles on branch \`main\`\n- **Scan scope**: 352 nested directories audited\n- **Summary**: 0 Critical warnings, 1 Low warning (Package \`minimist\` deep in devDependencies).\n\nCheck the **Security Tab** in your center deck for the detailed scan logs!`;
-        setActiveTab('security');
-      } else if (lower.includes('search') || lower.includes('semantic')) {
-        replyText = `🔎 **Semantic Code Index Search Results:**\n\nMatches found for key logic in \`${activeRepo}\`:\n1. \`components/DevBot.jsx\` (Score: 98% match)\n2. \`components/Layout.jsx\` (Score: 84% match)\n\nOpen the **Search Tab** to run granular semantic matches on your functions.`;
-        setActiveTab('search');
-      } else if (lower.includes('readme')) {
-        replyText = `📝 **Automated README.md Generated:**\n\n\`\`\`markdown\n# DevPulse AI Dashboard\nAI-powered operating hub for automated dependency sweeps and inline editor diagnostics.\n\`\`\`\n\nI have loaded this generated markdown directly into your **Code Studio** tab for you to inspect!`;
-        const files = {};
-        setActiveFile('README.md');
-        setCodeContent('# README.md');
-        setActiveTab('code');
-      } else if (lower.includes('changelog')) {
-        replyText = `📋 **Automated Release Notes (v1.1.0):**\n\n### Added\n- **Omnibar Command Palette**: Globally accessible keyboard deck (Cmd+K).\n- **Volumetric Lighting system**: Canvas particles repelling cursor movements.\n- **Diagnostics Monitor**: Bottom hardware console integration.`;
-      } else {
-        replyText = `🤖 **DevPulse AI Engine Response:**\n\nI can analyze \`${activeRepo}\` structures. Trigger tools in the top dashboard panel or command palette:\n- **Optimize code performance**\n- **Run a Security Audit**\n- **Generate a README file**\n- **Audit search embeddings**\n\nWhat would you like to run next?`;
-      }
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      'http://localhost:5000/api/ai/chat',
+      {
+        message: textToSend,
+        repoContext: `Repository: ${activeRepo}. Current file: ${activeFile}. 
+        You are DevBot, an AI assistant inside DevPulse cockpit. 
+        Help with code questions, security, performance, and documentation.
+        Be concise and technical.`
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-      setWorkspaceMessages(prev => [...prev, { id: Date.now() + 1, text: replyText, sender: 'bot' }]);
-      setBotStatus('online');
-      setBotTyping(false);
-    }, 1200);
-  };
+    setWorkspaceMessages(prev => [...prev, {
+      id: Date.now() + 1,
+      text: response.data.reply,
+      sender: 'bot'
+    }]);
+
+  } catch (err) {
+    setWorkspaceMessages(prev => [...prev, {
+      id: Date.now() + 1,
+      text: '❌ DevBot connection failed. Please try again.',
+      sender: 'bot'
+    }]);
+  } finally {
+    setBotStatus('online');
+    setBotTyping(false);
+  }
+};
 
   const triggerWorkspaceAction = (actionName) => {
     handleSendWorkspaceMsg(`Run ${actionName}`);
@@ -1616,70 +1681,99 @@ fetchFile();
               {activeTab === 'analytics' && (
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
                   <div>
-                    <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '6px' }}>AI Operating Diagnostics</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tracks local vector builds, token computations, and CPU metrics.</p>
+                    <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '6px' }}>Repository Analytics</h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Real commit activity and repository metrics for {activeRepo}
+                    </p>
                   </div>
 
-                  {/* Gauge rows */}
-                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    {/* SVG Velocity Graph */}
-                    <div className="glass" style={{ flex: 2, minWidth: '320px', padding: '20px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'white', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Development Velocity Score</span>
-                        <span style={{ color: 'var(--primary-cyan)' }}>+38% vs baseline</span>
-                      </div>
-                      
-                      <svg viewBox="0 0 500 200" width="100%" height="150">
-                        <defs>
-                          <linearGradient id="chart-glow-area" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--primary-purple)" stopOpacity="0.3" />
-                            <stop offset="100%" stopColor="var(--primary-purple)" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        {/* Grid lines */}
-                        <line x1="0" y1="50" x2="500" y2="50" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                        <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                        <line x1="0" y1="150" x2="500" y2="150" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                        {/* Wave path */}
-                        <path d="M 0 150 Q 80 80 150 120 T 300 40 T 450 90 L 500 90 L 500 200 L 0 200 Z" fill="url(#chart-glow-area)" />
-                        <path d="M 0 150 Q 80 80 150 120 T 300 40 T 450 90 M 450 90 L 500 90" fill="none" stroke="var(--primary-purple)" strokeWidth="3" />
-                        {/* Highlights */}
-                        <circle cx="150" cy="120" r="4" fill="var(--primary-cyan)" />
-                        <circle cx="300" cy="40" r="4" fill="var(--primary-cyan)" />
-                      </svg>
-                    </div>
-
-                    {/* Gauges column */}
-                    <div style={{ flex: 1.2, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div className="glass" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(0,0,0,0.1)' }}>
-                        <div style={{ position: 'relative', width: '50px', height: '50px' }}>
-                          <svg width="50" height="50" viewBox="0 0 36 36">
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5" />
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--primary-cyan)" strokeDasharray="85, 100" strokeWidth="2.5" />
-                          </svg>
-                          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: '10px', color: 'white', fontWeight: 700 }}>85%</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Index Embeddings Sync</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'white', marginTop: '2px' }}>Fully Synced</div>
-                        </div>
+                  {analyticsData ? (
+                    <>
+                      {/* Stats Row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                        {[
+                          { title: 'Total Commits', value: analyticsData.totalCommits, color: 'var(--primary-cyan)' },
+                          { title: 'Commits This Week', value: analyticsData.recentCommits, color: 'var(--primary-purple)' },
+                          { title: 'Last Commit', value: analyticsData.lastCommit ? new Date(analyticsData.lastCommit).toLocaleDateString() : 'N/A', color: '#10B981' }
+                        ].map((stat, i) => (
+                          <div key={i} className="glass" style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{stat.title}</div>
+                            <div style={{ fontSize: '22px', fontWeight: 700, color: stat.color, marginTop: '8px' }}>{stat.value}</div>
+                          </div>
+                        ))}
                       </div>
 
-                      <div className="glass" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(0,0,0,0.1)' }}>
-                        <div style={{ position: 'relative', width: '50px', height: '50px' }}>
-                          <svg width="50" height="50" viewBox="0 0 36 36">
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5" />
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--primary-purple)" strokeDasharray="34, 100" strokeWidth="2.5" />
-                          </svg>
-                          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: '10px', color: 'white', fontWeight: 700 }}>34%</div>
+                      {/* Velocity Chart */}
+                      <div className="glass" style={{ flex: 2, padding: '20px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'white', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Commit Activity</span>
+                          <span style={{ color: 'var(--primary-cyan)' }}>
+                            {analyticsData.recentCommits} commits this week
+                          </span>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CPU/Memory Burden</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'white', marginTop: '2px' }}>Cold Load</div>
-                        </div>
+
+                        <svg viewBox="0 0 500 200" width="100%" height="150">
+                          <defs>
+                            <linearGradient id="chart-glow-area" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--primary-purple)" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="var(--primary-purple)" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          <line x1="0" y1="50" x2="500" y2="50" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="0" y1="150" x2="500" y2="150" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          {analyticsData.chartPoints.length > 0 && (
+                            <>
+                              <path
+                                d={`${analyticsData.chartPoints.map((p, i) =>
+                                  `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')} L 500 200 L 0 200 Z`}
+                                fill="url(#chart-glow-area)"
+                              />
+                              <path
+                                d={analyticsData.chartPoints.map((p, i) =>
+                                  `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
+                                fill="none"
+                                stroke="var(--primary-purple)"
+                                strokeWidth="3"
+                              />
+                              {analyticsData.chartPoints.map((p, i) => (
+                                <circle key={i} cx={p.x} cy={p.y} r="4" fill="var(--primary-cyan)" />
+                              ))}
+                            </>
+                          )}
+                        </svg>
                       </div>
+
+                      {/* Gauge Metrics */}
+                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        {[
+                          { label: 'Velocity Score', value: analyticsData.velocityScore, color: 'var(--primary-cyan)' },
+                          { label: 'Activity Score', value: analyticsData.syncScore, color: 'var(--primary-purple)' }
+                        ].map((gauge, i) => (
+                          <div key={i} className="glass" style={{ flex: 1, minWidth: '200px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(0,0,0,0.1)' }}>
+                            <div style={{ position: 'relative', width: '50px', height: '50px' }}>
+                              <svg width="50" height="50" viewBox="0 0 36 36">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5" />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={gauge.color} strokeDasharray={`${gauge.value}, 100`} strokeWidth="2.5" />
+                              </svg>
+                              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: '10px', color: 'white', fontWeight: 700 }}>{gauge.value}%</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{gauge.label}</div>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: 'white', marginTop: '2px' }}>
+                                {gauge.value > 60 ? 'High Activity' : gauge.value > 30 ? 'Moderate' : 'Low Activity'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary-cyan)' }}>
+                      <RefreshCw size={16} style={{ animation: 'spin 2s linear infinite' }} />
+                      <span style={{ fontSize: '13px' }}>Loading analytics...</span>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
