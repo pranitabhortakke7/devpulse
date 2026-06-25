@@ -731,15 +731,16 @@ function App() {
     
     let isMounted = true;
     const scripts = [
-      { delay: 1000, text: '🔍 Scanning codebase structures...', type: 'info' },
-      { delay: 1800, text: '✓ 142 internal file modules mapped.', type: 'success' },
-      { delay: 2500, text: '🧠 Generating vector index embeddings...', type: 'info' },
-      { delay: 3500, text: '✓ AI Index Synced. DevBot helper ONLINE (Gemini Flash).', type: 'success' },
-      { delay: 4200, text: 'root@devpulse:~$ devpulse audit --security', type: 'cmd' },
-      { delay: 5000, text: '🛡️ Scanning dependency lockfiles...', type: 'info' },
-      { delay: 5800, text: '✓ 0 Critical / 0 High vulnerabilities found.', type: 'success' },
-      { delay: 6500, text: 'root@devpulse:~$ devpulse ready --interactive', type: 'cmd' },
-      { delay: 7200, text: '🚀 Launching Developer Operating Core Panel...', type: 'success' }
+      { delay: 1000, text: 'root@devpulse:~$ devpulse connect --github pranitabhortakke7', type: 'cmd' },
+      { delay: 1800, text: '✓ GitHub OAuth authenticated. 11 repositories synced.', type: 'success' },
+      { delay: 2500, text: 'root@devpulse:~$ devpulse chat --devbot "explain my codebase"', type: 'cmd' },
+      { delay: 3500, text: '🤖 DevBot AI initialized. Groq LLaMA 3.3 70B connected.', type: 'info' },
+      { delay: 4200, text: '✓ AI response generated in 0.8s.', type: 'success' },
+      { delay: 5000, text: 'root@devpulse:~$ devpulse audit --security --repo devpulse', type: 'cmd' },
+      { delay: 5800, text: '🛡️ Scanning 274 dependencies via OSV database...', type: 'info' },
+      { delay: 6500, text: '✓ Audit complete. 4 vulnerabilities detected. Fix available.', type: 'success' },
+      { delay: 7200, text: 'root@devpulse:~$ devpulse generate --changelog', type: 'cmd' },
+      { delay: 7800, text: '🚀 AI Changelog generated. DevPulse Cockpit ready.', type: 'success' }
     ];
 
     const timers = [];
@@ -4471,11 +4472,12 @@ fetchFile();
               borderRadius: '20px',
               background: 'rgba(5, 8, 22, 0.5)'
             }}>
+
               {[
-                { label: 'Active Vector Nodes', value: '142,580', color: 'var(--primary-cyan)' },
-                { label: 'Refactor Patches Applied', value: '92,410', color: 'var(--primary-purple)' },
-                { label: 'Vulnerabilities Prevented', value: '2,056', color: '#10b981' },
-                { label: 'Developer Velocity Score', value: '+38% Speed', color: '#10b981' }
+                { label: 'GitHub Repos Connected', value: '11+', color: 'var(--primary-cyan)' },
+                { label: 'AI Features Powered by Groq', value: '4', color: 'var(--primary-purple)' },
+                { label: 'Dependencies Scanned', value: '274', color: '#10b981' },
+                { label: 'AI Models Integrated', value: '3', color: '#10b981' }
               ].map((stat, i) => (
                 <div key={i} style={{ textAlign: 'center' }}>
                   <h3 style={{ 
