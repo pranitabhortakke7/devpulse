@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+
 // Custom GitHub SVG Icon
 const Github = (props) => (
   <svg
@@ -482,7 +484,7 @@ function App() {
       
       try {
         setRepoLoading(true);
-        const response = await axios.get('http://localhost:5000/api/github/repos', {
+        const response = await axios.get(`${API_BASE_URL}/api/github/repos`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setRepos(response.data);
@@ -502,7 +504,7 @@ function App() {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const response = await axios.get('http://localhost:5000/api/github/stats', {
+        const response = await axios.get(`${API_BASE_URL}/api/github/stats`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setGithubStats(response.data);
@@ -552,7 +554,7 @@ function App() {
         setCommitsLoading(true);
         const parts = activeRepo.split('/');
         const repoName = parts.length > 1 ? parts[1] : parts[0];
-        const response = await axios.get(`http://localhost:5000/api/github/repos/${repoName}/commits`, {
+        const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setCommits(response.data || []);
@@ -622,7 +624,7 @@ function App() {
       try {
         const repoName = activeRepo.split('/')[1];
         const response = await axios.get(
-          `http://localhost:5000/api/github/repos/${repoName}/file`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/file`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCodeContent(response.data.content);
@@ -640,7 +642,7 @@ function App() {
       try {
         const repoName = activeRepo.split('/')[1];
         const response = await axios.get(
-          `http://localhost:5000/api/github/repos/${repoName}/files`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/files`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setRepoFilesList(response.data.files);
@@ -657,7 +659,7 @@ function App() {
     const owner = activeRepo.split('/')[0];
     const repoName = activeRepo.split('/')[1];
     const response = await axios.get(
-      `http://localhost:5000/api/github/security/audit?repo=${repoName}&owner=${owner}`,
+      `${API_BASE_URL}/api/github/security/audit?repo=${repoName}&owner=${owner}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     setAuditData(response.data);
@@ -681,7 +683,7 @@ function App() {
 
         // Fetch commits for analytics
         const commitsRes = await axios.get(
-          `http://localhost:5000/api/github/repos/${repoName}/commits`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -822,7 +824,7 @@ function App() {
   try {
     const token = localStorage.getItem('token');
     const response = await axios.post(
-      'http://localhost:5000/api/ai/chat',
+      `${API_BASE_URL}/api/ai/chat`,
       {
         message: textToSend,
         repoContext: `Repository: ${activeRepo}. Current file: ${activeFile}. 
@@ -883,7 +885,7 @@ function App() {
     const token = localStorage.getItem('token');
     
     const response = await axios.post(
-      'http://localhost:5000/api/ai/refactor',
+      `${API_BASE_URL}/api/ai/refactor`,
       {
         code: codeContent,
         filename: activeFile
@@ -941,7 +943,7 @@ function App() {
 
     // Real API call
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
         email: loginEmail,
         password: loginPassword
       });
@@ -1017,7 +1019,7 @@ function App() {
 
     // Real API call
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, {
         username: regUsername,
         email: regEmail,
         password: regPassword
@@ -1134,7 +1136,7 @@ const fetchFile = async () => {
   const token = localStorage.getItem('token');
   const repoName = activeRepo.split('/')[1];
   const res = await axios.get(
-    `http://localhost:5000/api/github/repos/${repoName}/file?path=${filename}`,
+    `${API_BASE_URL}/api/github/repos/${repoName}/file?path=${filename}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   setCodeContent(res.data.content);
@@ -2895,14 +2897,14 @@ fetchFile();
 
       // Fetch real commits first
       const commitsRes = await axios.get(
-        `http://localhost:5000/api/github/repos/${repoName}/commits`,
+        `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log('Commits:', commitsRes.data);
 
       // Send commits to Groq AI
       const aiRes = await axios.post(
-        'http://localhost:5000/api/ai/changelog',
+        `${API_BASE_URL}/api/ai/changelog`,
         {
           commits: commitsRes.data,
           repoName: activeRepo
@@ -2951,7 +2953,7 @@ fetchFile();
 
       // Fetch repo details from GitHub
       const reposRes = await axios.get(
-        `http://localhost:5000/api/github/repos`,
+        `${API_BASE_URL}/api/github/repos`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -2960,7 +2962,7 @@ fetchFile();
 
       // Send to Groq AI
       const aiRes = await axios.post(
-        'http://localhost:5000/api/ai/readme',
+        `${API_BASE_URL}/api/ai/readme`,
         {
           repoName: activeRepo,
           description: repoDetails.description,
@@ -2996,7 +2998,7 @@ fetchFile();
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/ai/chat',
+        `${API_BASE_URL}/api/ai/chat`,
         {
           message: input,
           repoContext: activeRepo
