@@ -5,10 +5,11 @@ require('dotenv').config();
 
 const app = express();
 
+
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://your-project.vercel.app'  // ← replace with your actual Vercel URL
+    'https://devpulse-techteam6.vercel.app'
   ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
