@@ -1,4 +1,6 @@
+const axios = require('axios');
 const express = require('express');
+
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -82,6 +84,83 @@ router.get('/me', async (req, res) => {
       res.status(500).json({ message: 'Server error' });
     }
   });
+});
+
+// GitHub OAuth - Step 1: Redirect to GitHub
+router.get('/github', (req, res) => {
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&scope=repo,read:user,user:email`;
+  res.redirect(githubAuthUrl);
+});
+
+// GitHub OAuth - Step 2: Callback from GitHub
+router.get('/github/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    // Exchange code for access token
+    const tokenRes = await axios.post(
+      'https://github.com/login/oauth/access_token',
+      {
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code
+      },
+      { headers: { Accept: 'application/json' } }
+    );
+
+    const githubAccessToken = tokenRes.data.access_token;
+
+    // Get GitHub user data
+    const githubUserRes = await axios.get('https://api.github.com/user', {
+      headers: {
+        Authorization: `token ${githubAccessToken}`,
+        Accept: 'application/vnd.github.v3+json'
+      }
+    });
+
+    const githubUser = githubUserRes.data;
+
+    // Check if user already exists with this GitHub ID
+    let user = await User.findOne({ githubId: String(githubUser.id) });
+
+    if (user) {
+      user.githubAccessToken = githubAccessToken;
+      user.avatar = githubUser.avatar_url;
+      await user.save();
+    } else {
+      user = await User.findOne({ email: githubUser.email });
+
+      if (user) {
+        user.githubId = String(githubUser.id);
+        user.githubAccessToken = githubAccessToken;
+        user.avatar = githubUser.avatar_url;
+        await user.save();
+      } else {
+        user = new User({
+          username: githubUser.login,
+          email: githubUser.email || `${githubUser.login}@github.com`,
+          password: await bcrypt.hash(Math.random().toString(36), 10),
+          githubId: String(githubUser.id),
+          githubAccessToken,
+          avatar: githubUser.avatar_url
+        });
+        await user.save();
+      }
+    }
+
+    // Create JWT token
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Redirect to frontend with token
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&username=${user.username}&email=${encodeURIComponent(user.email)}&avatar=${encodeURIComponent(user.avatar || '')}`);
+  } catch (err) {
+    console.error('GitHub OAuth error:', err.message);
+    res.redirect(`${process.env.FRONTEND_URL}/login?error=github_auth_failed`);
+  }
 });
 
 module.exports = router;

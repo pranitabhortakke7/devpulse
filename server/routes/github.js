@@ -2,19 +2,35 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const authMiddleware = require('../middleware/auth');
+const User = require('../models/User');
 
 const GITHUB_API = 'https://api.github.com';
-const HEADERS = {
-  Authorization: `token ${process.env.GITHUB_TOKEN}`,
-  Accept: 'application/vnd.github.v3+json'
+
+// Helper to get headers with user's own GitHub token
+const getUserHeaders = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user?.githubAccessToken) return null;
+
+  return {
+    Authorization: `token ${user.githubAccessToken}`,
+    Accept: 'application/vnd.github.v3+json'
+  };
 };
 
 // GET all repos
 router.get('/repos', authMiddleware, async (req, res) => {
+  const headers = await getUserHeaders(req.user.id);
+  if (!headers) {
+    return res.status(401).json({
+      message: 'GitHub not connected',
+      notConnected: true
+    });
+  }
+
   try {
     const response = await axios.get(
-      `${GITHUB_API}/users/${process.env.GITHUB_USERNAME}/repos?sort=updated&per_page=20`,
-      { headers: HEADERS }
+      `${GITHUB_API}/user/repos?sort=updated&per_page=20`,
+      { headers }
     );
 
     const repos = response.data.map(repo => ({
@@ -38,11 +54,21 @@ router.get('/repos', authMiddleware, async (req, res) => {
 
 // GET commits for a repo
 router.get('/repos/:repoName/commits', authMiddleware, async (req, res) => {
+  const headers = await getUserHeaders(req.user.id);
+  if (!headers) {
+    return res.status(401).json({
+      message: 'GitHub not connected',
+      notConnected: true
+    });
+  }
+
   try {
     const { repoName } = req.params;
+    const headers = await getUserHeaders(req.user.id);
+
     const response = await axios.get(
       `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/commits?per_page=10`,
-      { headers: HEADERS }
+      { headers }
     );
 
     const commits = response.data.map(commit => ({
@@ -62,9 +88,10 @@ router.get('/repos/:repoName/commits', authMiddleware, async (req, res) => {
 // GET user github profile stats
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
+    const headers = await getUserHeaders(req.user.id);
     const response = await axios.get(
       `${GITHUB_API}/users/${process.env.GITHUB_USERNAME}`,
-      { headers: HEADERS }
+      { headers }
     );
 
     const stats = {
@@ -89,15 +116,17 @@ router.get('/repos/:repoName/file', authMiddleware, async (req, res) => {
     const { repoName } = req.params;
     const { path } = req.query;
 
+    const headers = await getUserHeaders(req.user.id);
+
     // First get file tree
     const treeRes = await axios.get(
       `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/git/trees/main?recursive=1`,
-      { headers: HEADERS }
+      { headers }
     );
 
     // Find first JS/JSX file if no path specified
     const filePath = path || treeRes.data.tree
-      .find(f => f.type === 'blob' && 
+      .find(f => f.type === 'blob' &&
         (f.path.endsWith('.js') || f.path.endsWith('.jsx')))?.path;
 
     if (!filePath) {
@@ -107,7 +136,7 @@ router.get('/repos/:repoName/file', authMiddleware, async (req, res) => {
     // Get file content
     const contentRes = await axios.get(
       `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/contents/${filePath}`,
-      { headers: HEADERS }
+      { headers }
     );
 
     // Decode base64 content
@@ -124,14 +153,16 @@ router.get('/repos/:repoName/files', authMiddleware, async (req, res) => {
   try {
     const { repoName } = req.params;
 
+    const headers = await getUserHeaders(req.user.id);
+
     const treeRes = await axios.get(
       `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/git/trees/main?recursive=1`,
-      { headers: HEADERS }
+      { headers }
     );
 
     const files = treeRes.data.tree
-      .filter(f => f.type === 'blob' && 
-        (f.path.endsWith('.jsx') || 
+      .filter(f => f.type === 'blob' &&
+        (f.path.endsWith('.jsx') ||
          f.path.endsWith('.js') ||
          f.path.endsWith('.ts') ||
          f.path.endsWith('.css') ||
@@ -153,43 +184,42 @@ router.get('/security/audit', authMiddleware, async (req, res) => {
   try {
     const repoName = req.query.repo || 'devpulse';
     const owner = req.query.owner || process.env.GITHUB_USERNAME;
-    console.log('Auditing:', owner, repoName);
+    const headers = await getUserHeaders(req.user.id);
 
     // Get package.json from repo to extract dependencies
-    // Get package.json from repo
-let packageJson = { dependencies: {}, devDependencies: {} };
+    let packageJson = { dependencies: {}, devDependencies: {} };
 
-try {
-  // Try root package.json first
-  const packageRes = await axios.get(
-    `${GITHUB_API}/repos/${owner}/${repoName}/contents/package.json`,
-    { headers: HEADERS }
-  );
-  packageJson = JSON.parse(
-    Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
-  );
-} catch (pkgErr) {
-  // Try client/package.json
-  try {
-    const packageRes = await axios.get(
-      `${GITHUB_API}/repos/${owner}/${repoName}/contents/client/package.json`,
-      { headers: HEADERS }
-    );
-    packageJson = JSON.parse(
-      Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
-    );
-  } catch (pkgErr2) {
-    // Return empty audit if no package.json found
-    return res.json({
-      counts: { critical: 0, high: 0, moderate: 0, low: 0, info: 0 },
-      vulnerabilities: [],
-      totalDependencies: 0,
-      scannedAt: new Date().toISOString(),
-      repo: `${owner}/${repoName}`,
-      message: 'No package.json found in this repo'
-    });
-  }
-}
+    try {
+      // Try root package.json first
+      const packageRes = await axios.get(
+        `${GITHUB_API}/repos/${owner}/${repoName}/contents/package.json`,
+        { headers }
+      );
+      packageJson = JSON.parse(
+        Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
+      );
+    } catch (pkgErr) {
+      // Try client/package.json
+      try {
+        const packageRes = await axios.get(
+          `${GITHUB_API}/repos/${owner}/${repoName}/contents/client/package.json`,
+          { headers }
+        );
+        packageJson = JSON.parse(
+          Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
+        );
+      } catch (pkgErr2) {
+        // Return empty audit if no package.json found
+        return res.json({
+          counts: { critical: 0, high: 0, moderate: 0, low: 0, info: 0 },
+          vulnerabilities: [],
+          totalDependencies: 0,
+          scannedAt: new Date().toISOString(),
+          repo: `${owner}/${repoName}`,
+          message: 'No package.json found in this repo'
+        });
+      }
+    }
 
     const dependencies = {
       ...packageJson.dependencies,
@@ -203,7 +233,7 @@ try {
         `${GITHUB_API}/repos/${owner}/${repoName}/vulnerability-alerts`,
         {
           headers: {
-            ...HEADERS,
+            ...headers,
             Accept: 'application/vnd.github.dorian-preview+json'
           }
         }
@@ -231,11 +261,11 @@ try {
         );
 
         if (osvRes.data.vulns && osvRes.data.vulns.length > 0) {
-            // Get severity score and convert to level
+          // Get severity score and convert to level
           const cvssScore = osvRes.data.vulns[0].severity?.[0]?.score || 0;
-          const severityLevel = cvssScore >= 9 ? 'critical' : 
-                          cvssScore >= 7 ? 'high' : 
-                         cvssScore >= 4 ? 'moderate' : 'low';
+          const severityLevel = cvssScore >= 9 ? 'critical' :
+            cvssScore >= 7 ? 'high' :
+              cvssScore >= 4 ? 'moderate' : 'low';
 
           osvResults.push({
             name: pkg,
@@ -255,10 +285,8 @@ try {
     const counts = {
       critical: osvResults.filter(v => v.severity === 'CRITICAL').length,
       high: osvResults.filter(v => v.severity === 'HIGH').length,
-      moderate: osvResults.filter(v => 
-        v.severity === 'MODERATE' || v.severity === 'moderate').length,
-      low: osvResults.filter(v => 
-        v.severity === 'LOW' || v.severity === 'low').length,
+      moderate: osvResults.filter(v => v.severity === 'MODERATE' || v.severity === 'moderate').length,
+      low: osvResults.filter(v => v.severity === 'LOW' || v.severity === 'low').length,
       info: 0
     };
 
@@ -276,3 +304,4 @@ try {
 });
 
 module.exports = router;
+

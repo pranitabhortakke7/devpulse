@@ -971,28 +971,7 @@ function App() {
     }
   };
   const handleGithubConnect = () => {
-    setLoginLoading(true);
-    setLoginLogs([]);
-    
-    const logs = [
-      { text: 'Connecting secure channel to auth.github.com...', delay: 400 },
-      { text: 'Exchanging SSH handshake signatures...', delay: 900 },
-      { text: 'Verifying OAuth Token and Scope permissions...', delay: 1400 },
-      { text: 'Loading DevPulse global config state mapping...', delay: 1900 },
-      { text: 'Connection SECURE. Decrypting workspaces...', delay: 2400 },
-      { text: 'Redirecting to Core Operating Command Palette...', delay: 2800 }
-    ];
-
-    logs.forEach(log => {
-      setTimeout(() => {
-        setLoginLogs(prev => [...prev, log.text]);
-      }, log.delay);
-    });
-
-    setTimeout(() => {
-      navigateTo('/devbot');
-      setLoginLoading(false);
-    }, 3200);
+    window.location.href = 'http://localhost:5000/api/auth/github';
   };
 
   // Register identity onboarding sequencer
@@ -1050,6 +1029,33 @@ function App() {
   };
   const cleanPath = currentPath.split('?')[0];
 
+  // Handle GitHub OAuth callback
+  if (cleanPath === '/auth/callback') {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const username = params.get('username');
+    const email = params.get('email');
+    const avatar = params.get('avatar');
+
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          username,
+          email: decodeURIComponent(email),
+          avatar: decodeURIComponent(avatar)
+        })
+      );
+      window.history.pushState({}, '', '/dashboard');
+      setCurrentPath('/dashboard');
+    } else {
+      navigateTo('/login');
+    }
+
+    return null;
+  }
+
   // RENDER WORKSPACE PAGE (/devbot)
   const privateRoutes = ['/devbot', '/chat', '/dashboard', '/profile', '/project'];
   const isPrivateRoute = privateRoutes.some(route => cleanPath.startsWith(route));
@@ -1105,7 +1111,9 @@ function App() {
                 }}
               >
                 {repoLoading ? (
-                  <option disabled>Loading repos...</option>
+                  <option disabled>{'Loading repos...'}</option>
+                ) : repos.length === 0 ? (
+                  <option disabled>{'Connect GitHub to see repos'}</option>
                 ) : (
                   repos.map(repo => (
                     <option key={repo.full_name} value={repo.full_name} style={{ background: '#050816' }}>
@@ -1124,54 +1132,68 @@ function App() {
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '4px', marginTop: '6px' }}>
-                {repoFilesList.map((filename) => {
-                  const isSelected = activeFile === filename;
-                  return (
-                    <div
-                      key={filename}
-                      onClick={() => {
-                        setActiveFile(filename);
-                        // Fetch file content when clicked
-const fetchFile = async () => {
-  const token = localStorage.getItem('token');
-  const repoName = activeRepo.split('/')[1];
-  const res = await axios.get(
-    `${API_BASE_URL}/api/github/repos/${repoName}/file?path=${filename}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  setCodeContent(res.data.content);
-};
-fetchFile();
-                        setHasRefactored(false);
-                        setActiveTab('code'); // Switch to Code Studio
-                      }}
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        background: isSelected ? 'rgba(34, 211, 238, 0.08)' : 'transparent',
-                        color: isSelected ? 'white' : 'var(--text-secondary)',
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s',
-                        border: isSelected ? '1px solid rgba(34, 211, 238, 0.2)' : '1px solid transparent'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <FileCode size={13} color={isSelected ? 'var(--primary-cyan)' : 'var(--text-muted)'} />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
-                        {filename.split('/').pop()}
-                      </span>
-                    </div>
-                  );
-                })}
+                {repoFilesList.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '11px',
+                      fontFamily: 'var(--font-mono)'
+                    }}
+                  >
+                    <div style={{ marginBottom: '8px' }}>📁</div>
+                    Connect GitHub to see files
+                  </div>
+                ) : (
+                  repoFilesList.map((filename) => {
+                    const isSelected = activeFile === filename;
+                    return (
+                      <div
+                        key={filename}
+                        onClick={() => {
+                          setActiveFile(filename);
+                          const fetchFile = async () => {
+                            const token = localStorage.getItem('token');
+                            const repoName = activeRepo.split('/')[1];
+                            const res = await axios.get(
+                              `http://localhost:5000/api/github/repos/${repoName}/file?path=${filename}`,
+                              { headers: { Authorization: `Bearer ${token}` } }
+                            );
+                            setCodeContent(res.data.content);
+                          };
+                          fetchFile();
+                          setHasRefactored(false);
+                          setActiveTab('code');
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          background: isSelected ? 'rgba(34, 211, 238, 0.08)' : 'transparent',
+                          color: isSelected ? 'white' : 'var(--text-secondary)',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s',
+                          border: isSelected ? '1px solid rgba(34, 211, 238, 0.2)' : '1px solid transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <FileCode size={13} color={isSelected ? 'var(--primary-cyan)' : 'var(--text-muted)'} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                          {filename.split('/').pop()}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1804,7 +1826,7 @@ fetchFile();
                 <span>DEV-OPERATIVE STATUS: ONLINE</span>
               </div>
               <div style={{ display: 'flex', gap: '24px' }}>
-                <span>API LATENCY: 84ms (Gemini Flash)</span>
+                <span>API LATENCY: 84ms (Groq LLaMA 3.3)</span>
                 <span>SYNC CAP: 100% SECURE</span>
               </div>
             </div>
@@ -2644,8 +2666,45 @@ fetchFile();
             gap: '16px',
             marginBottom: '24px'
           }}>
+            {!githubStats && (
+              <div className="glass" style={{
+                gridColumn: '1 / -1',
+                padding: '30px',
+                textAlign: 'center',
+                background: 'rgba(5, 8, 22, 0.55)',
+                border: '1px solid rgba(124, 58, 237, 0.3)',
+                borderRadius: '12px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔗</div>
+                <h3 style={{ fontSize: '18px', color: 'white', marginBottom: '8px' }}>
+                  GitHub Not Connected
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                  Connect your GitHub account to see your real repositories, commits, and stats.
+                </p>
+                <button
+                  onClick={() => window.location.href = 'http://localhost:5000/api/auth/github'}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, var(--primary-purple), var(--primary-blue))',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Connect GitHub Account
+                </button>
+              </div>
+            )}
+
             {[
               { title: 'Total Repositories', value: totalRepos, subtitle: 'Synced context files', icon: FolderTree, color: 'var(--primary-cyan)' },
+
+              
               { title: 'Total Stars', value: totalStars, subtitle: 'Across synced repositories', icon: FileCode, color: 'var(--primary-purple)' },
               { title: 'Total Forks', value: totalForks, subtitle: 'Repository forks', icon: Layers, color: 'var(--primary-blue)' },
               { title: 'Followers', value: followers, subtitle: 'People watching you', icon: Zap, color: '#F59E0B' },
@@ -2699,7 +2758,7 @@ fetchFile();
                   </p>
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
                   <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)' }}>
-                    &gt; API core synopses: stable (Gemini Flash)
+                    &gt; API core synopses: stable (Groq LLaMA 3.3)
                   </div>
                 </div>
               </div>
@@ -2858,7 +2917,7 @@ fetchFile();
               <span>DASHBOARD METRICS CONSOLE: ONLINE</span>
             </div>
             <div style={{ display: 'flex', gap: '24px' }}>
-              <span>ACTIVE MODEL: GEMINI 3.5 FLASH (LOW)</span>
+              <span>ACTIVE MODEL: GROQ LLAMA 3.3 (LOW)</span>
               <span>SYNC CAP: 100% SECURE</span>
             </div>
           </div>
@@ -3109,7 +3168,9 @@ fetchFile();
                       <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>GitHub</span>
                       <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 700 }}>Connected</span>
                     </div>
-                    <div style={{ fontSize: '23px', color: 'white', fontWeight: 800 }}>{githubStats ? 'yes' : 'no'}</div>
+                    <div style={{ fontSize: '23px', color: 'white', fontWeight: 800 }}>
+  {githubStats?.username || 'Not Connected'}
+</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px' }}>Managed via OAuth with repo sync, pull request scoring, and security insights.</div>
                   </div>
 
@@ -4069,7 +4130,7 @@ fetchFile();
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ask DevBot anything about the current repository or selected file.</div>
                   <div style={{ display: 'grid', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'white' }}><span>Model</span><span>Gemini 3.5 Flash</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'white' }}><span>Model</span><span>Groq LLaMA 3.3</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'white' }}><span>Response time</span><span>~1.2s</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'white' }}><span>Status</span><span style={{ color: '#10b981' }}>Online</span></div>
                   </div>
