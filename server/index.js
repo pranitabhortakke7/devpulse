@@ -9,7 +9,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://devpulse-techteam6.vercel.app'
+    'https://devpulse-five-lovat.vercel.app'
   ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
