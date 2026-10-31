@@ -3,12 +3,20 @@ const router = express.Router();
 const Groq = require('groq-sdk');
 const authMiddleware = require('../middleware/auth');
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
+
+const requireGroqApiKey = (req, res, next) => {
+  if (!groq) {
+    return res.status(503).json({ message: 'AI service is not configured: GROQ_API_KEY is missing' });
+  }
+
+  next();
+};
 
 // DevBot Chat
-router.post('/chat', authMiddleware, async (req, res) => {
+router.post('/chat', authMiddleware, requireGroqApiKey, async (req, res) => {
   try {
     const { message, repoContext } = req.body;
 
@@ -36,7 +44,7 @@ ${repoContext ? `Current repository: ${repoContext}` : ''}`
 });
 
 // Generate Changelog
-router.post('/changelog', authMiddleware, async (req, res) => {
+router.post('/changelog', authMiddleware, requireGroqApiKey, async (req, res) => {
   try {
     const { commits, repoName } = req.body;
 
@@ -71,7 +79,7 @@ Format as markdown with sections: ## Added, ## Fixed, ## Changed. Make it human-
 });
 
 // Generate README
-router.post('/readme', authMiddleware, async (req, res) => {
+router.post('/readme', authMiddleware, requireGroqApiKey, async (req, res) => {
   try {
     const { repoName, description, language } = req.body;
 
@@ -103,7 +111,7 @@ Include: Title, Badges, Description, Features, Tech Stack, Installation, Usage, 
 });
 
 // Refactor Code
-router.post('/refactor', authMiddleware, async (req, res) => {
+router.post('/refactor', authMiddleware, requireGroqApiKey, async (req, res) => {
   try {
     const { code, filename } = req.body;
 

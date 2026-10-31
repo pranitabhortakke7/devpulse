@@ -30,12 +30,25 @@ app.get('/', (req, res) => {
   res.json({ message: 'DevPulse API is running 🚀' });
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('✅ MongoDB Connected');
-    app.listen(process.env.PORT || 5000, () => {
-      console.log(`✅ Server running on port ${process.env.PORT || 5000}`);
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is not configured; authentication will not work.');
+  }
+
+  if (!process.env.MONGO_URI) {
+    console.error('❌ MONGO_URI is not configured; database-backed routes will not work.');
+    return;
+  }
+
+  mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log('✅ MongoDB Connected');
+    })
+    .catch((err) => {
+      console.error('❌ DB Connection Error:', err);
     });
-  })
-  .catch((err) => console.log('❌ DB Connection Error:', err));
+});
