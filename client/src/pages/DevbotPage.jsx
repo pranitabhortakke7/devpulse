@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, CheckCircle2, Code, FileCode, FileText, FolderTree, MessageSquare, Play, RefreshCw,
-  Search, Shield, Terminal, Zap, Activity
+  Shield, Terminal, Zap, Activity
 } from 'lucide-react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
@@ -62,7 +62,7 @@ const DevbotPage = ({ navigateTo }) => {
   } = useAppContext();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('chat'); // chat, code, search, security, analytics
+  const [activeTab, setActiveTab] = useState('chat'); // chat, code, security, analytics
   const [botStatus, setBotStatus] = useState('online'); // online, busy
   const [botTyping, setBotTyping] = useState(false);
 
@@ -73,10 +73,6 @@ const DevbotPage = ({ navigateTo }) => {
   // Code studio states
   const [hasRefactored, setHasRefactored] = useState(false);
   const [refactorAnimation, setRefactorAnimation] = useState(false);
-
-// Search tab state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
 
   // Changelog / README log state
   const [changelogLogs, setChangelogLogs] = useState([]);
@@ -105,8 +101,6 @@ const DevbotPage = ({ navigateTo }) => {
       setActiveTab('security');
     } else if (lower.includes('analytics') || lower.includes('optimize')) {
       setActiveTab('analytics');
-    } else if (lower.includes('search') || lower.includes('semantic')) {
-      setActiveTab('search');
     } else if (lower.includes('code') || lower.includes('refactor')) {
       setActiveTab('code');
     }
@@ -162,23 +156,6 @@ const DevbotPage = ({ navigateTo }) => {
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath]);
-
-  // Perform mock semantic search
-  const handleSemanticSearch = (query) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setTimeout(() => {
-      const results = [
-        { file: 'src/components/DevBot.jsx', score: 98, matchText: 'Floating movement loops, SVG digital eyes, cursor repulsion vector mathematics.' },
-        { file: 'src/components/Layout.jsx', score: 86, matchText: 'Canvas particles tracking, global cursor document root coordinate listener.' },
-        { file: 'src/App.jsx', score: 72, matchText: 'Popstate router handles URL parameters, active tab selection controls.' }
-      ].filter(r => r.file.toLowerCase().includes(query.toLowerCase()) || r.matchText.toLowerCase().includes(query.toLowerCase()));
-      setSearchResults(results);
-    }, 100);
-  };
 
   // Accept Code Studio Refactor recommendation
   const handleApplyRefactor = async () => {
@@ -522,7 +499,6 @@ const DevbotPage = ({ navigateTo }) => {
             {[
               { id: 'chat', label: 'DevBot AI Chat', icon: MessageSquare },
               { id: 'code', label: 'Code Studio', icon: Code },
-              { id: 'search', label: 'Semantic Index Search', icon: Search },
               { id: 'security', label: 'Security Audit', icon: Shield },
               { id: 'analytics', label: 'Diagnostics & Metrics', icon: BarChart3 }
             ].map(tab => {
@@ -786,75 +762,7 @@ const DevbotPage = ({ navigateTo }) => {
               </div>
             )}
 
-            {/* TAB 3: SEMANTIC INDEX SEARCH */}
-            {activeTab === 'search' && (
-              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
-                <div>
-                  <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '6px' }}>Semantic Code Search</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Search files using natural queries instead of raw regex matches. Employs vector distance mapping.</p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
-                    <input
-                      type="text"
-                      placeholder="e.g. Where is particle velocity math computed?"
-                      value={searchQuery}
-                      onChange={(e) => handleSemanticSearch(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '10px',
-                        padding: '12px 12px 12px 44px',
-                        color: 'white',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {searchResults.length > 0 ? (
-                    searchResults.map((result, i) => (
-                      <div key={i} className="glass" style={{
-                        padding: '16px',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        background: 'rgba(11, 15, 39, 0.4)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'white' }}>
-                            <FileCode size={12} color="var(--primary-cyan)" />
-                            {result.file}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Match score:</span>
-                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)' }}>{result.score}%</span>
-                          </div>
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '6px', borderLeft: '2px solid var(--primary-purple)', fontFamily: 'var(--font-mono)' }}>
-                          {result.matchText}
-                        </p>
-                      </div>
-                    ))
-                  ) : searchQuery.trim() ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      No vector mappings found for "{searchQuery}".
-                    </div>
-                  ) : (
-                    <div style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Search size={28} color="rgba(255,255,255,0.1)" style={{ margin: '0 auto 12px' }} />
-                      <div style={{ fontSize: '13px' }}>Search results will appear here...</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 4: SECURITY AUDIT */}
+            {/* TAB 3: SECURITY AUDIT */}
             {activeTab === 'security' && (
               (() => {
                 const counts = auditData?.counts || { critical: 0, high: 0, moderate: 0, low: 0, info: 0 };
@@ -954,7 +862,7 @@ const DevbotPage = ({ navigateTo }) => {
               })()
             )}
 
-            {/* TAB 5: ANALYTICS & DIAGNOSTICS */}
+            {/* TAB 4: ANALYTICS & DIAGNOSTICS */}
             {activeTab === 'analytics' && (
               <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
                 <div>

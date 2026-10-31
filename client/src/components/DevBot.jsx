@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Zap, Shield, Search, Sparkles, MessageSquare } from 'lucide-react';
+import { Zap, Shield, Sparkles, MessageSquare } from 'lucide-react';
 
 // Reusable Futuristic DevBot SVG/CSS Render
 export const RobotAvatar = ({ isHovered = false, isTyping = false, size = 80 }) => {
@@ -454,7 +454,6 @@ const DevBot = ({ currentPath = '/', navigateTo }) => {
             {[
               { icon: Zap, label: 'Optimization', color: '#F59E0B' },
               { icon: Shield, label: 'Security Scan', color: '#10B981' },
-              { icon: Search, label: 'Semantic Search', color: 'var(--primary-cyan)' },
               { icon: MessageSquare, label: 'Open Workspace', color: 'var(--primary-purple)' }
             ].map((item, i) => (
               <div 

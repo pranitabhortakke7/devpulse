@@ -466,8 +466,7 @@ const Dashboard = ({ navigateTo }) => {
                 {[
                   { label: 'Sync Repository', action: () => navigateTo('/devbot'), icon: RefreshCw },
                   { label: 'Optimize Loops', action: () => navigateTo('/devbot?action=Optimization'), icon: Zap },
-                  { label: 'Inspect Security', action: () => navigateTo('/devbot?action=Security%20Scan'), icon: Shield },
-                  { label: 'Search Semantics', action: () => navigateTo('/devbot?action=Semantic%20Search'), icon: Search }
+                  { label: 'Inspect Security', action: () => navigateTo('/devbot?action=Security%20Scan'), icon: Shield }
                 ].map((btn, i) => (
                   <button
                     key={i}

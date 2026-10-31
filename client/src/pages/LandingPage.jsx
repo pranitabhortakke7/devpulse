@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, MessageSquare, BarChart3, FileText, Shield, Search } from 'lucide-react';
+import { ArrowRight, MessageSquare, BarChart3, FileText, Shield } from 'lucide-react';
 import Layout from '../components/Layout';
 import GlassCard from '../components/GlassCard';
 import { useAppContext } from '../context/AppContext';
@@ -342,16 +342,6 @@ const LandingPage = ({ navigateTo }) => {
                 </p>
               </GlassCard>
 
-              <GlassCard 
-                title="Semantic Code Indexing" 
-                subtitle="Intent-based vector queries" 
-                icon={Search}
-                glowColor="#F59E0B"
-              >
-                <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  Find specific file implementations by query intent. No strict regex rules required to scan your variables or methods.
-                </p>
-              </GlassCard>
             </div>
           </section>
 
@@ -425,40 +415,6 @@ const LandingPage = ({ navigateTo }) => {
                   </div>
                   <h3 style={{ fontSize: '18px', color: 'white', marginBottom: '10px' }}>{s.title}</h3>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{s.desc}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Stats Section */}
-          <section style={{ marginBottom: '130px' }}>
-            <div className="glass" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-              gap: '24px', 
-              padding: '50px 30px',
-              borderColor: 'rgba(255,255,255,0.06)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
-              borderRadius: '20px',
-              background: 'rgba(5, 8, 22, 0.5)'
-            }}>
-
-              {[
-                { label: 'GitHub Repos Connected', value: '11+', color: 'var(--primary-cyan)' },
-                { label: 'AI Features Powered by Groq', value: '4', color: 'var(--primary-purple)' },
-                { label: 'Dependencies Scanned', value: '274', color: '#10b981' },
-                { label: 'AI Models Integrated', value: '3', color: '#10b981' }
-              ].map((stat, i) => (
-                <div key={i} style={{ textAlign: 'center' }}>
-                  <h3 style={{ 
-                    fontSize: '38px', 
-                    fontWeight: 800, 
-                    color: 'white', 
-                    marginBottom: '8px',
-                    fontFamily: 'var(--font-heading)',
-                    textShadow: `0 0 15px ${stat.color}22`
-                  }}>{stat.value}</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500 }}>{stat.label}</p>
                 </div>
               ))}
             </div>
