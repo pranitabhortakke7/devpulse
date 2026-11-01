@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Groq = require('groq-sdk');
 const authMiddleware = require('../middleware/auth');
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const groq = process.env.GROQ_API_KEY
   ? new Groq({ apiKey: process.env.GROQ_API_KEY })
@@ -21,7 +22,7 @@ router.post('/chat', authMiddleware, requireGroqApiKey, async (req, res) => {
     const { message, repoContext } = req.body;
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       messages: [
         {
           role: 'system',
@@ -33,7 +34,7 @@ ${repoContext ? `Current repository: ${repoContext}` : ''}`
           content: message
         }
       ],
-      max_tokens: 1024,
+      max_completion_tokens: 1024,
       temperature: 0.7
     });
 
@@ -53,7 +54,7 @@ router.post('/changelog', authMiddleware, requireGroqApiKey, async (req, res) =>
       .join('\n');
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       messages: [
         {
           role: 'system',
@@ -68,7 +69,7 @@ ${commitText}
 Format as markdown with sections: ## Added, ## Fixed, ## Changed. Make it human-readable and professional.`
         }
       ],
-      max_tokens: 1024,
+      max_completion_tokens: 1024,
       temperature: 0.5
     });
 
@@ -84,7 +85,7 @@ router.post('/readme', authMiddleware, requireGroqApiKey, async (req, res) => {
     const { repoName, description, language } = req.body;
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       messages: [
         {
           role: 'system',
@@ -100,7 +101,7 @@ router.post('/readme', authMiddleware, requireGroqApiKey, async (req, res) => {
 Include: Title, Badges, Description, Features, Tech Stack, Installation, Usage, Contributing, License sections. Make it impressive.`
         }
       ],
-      max_tokens: 2048,
+      max_completion_tokens: 2048,
       temperature: 0.5
     });
 
@@ -116,7 +117,7 @@ router.post('/refactor', authMiddleware, requireGroqApiKey, async (req, res) => 
     const { code, filename } = req.body;
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       messages: [
         {
           role: 'system',
@@ -127,7 +128,7 @@ router.post('/refactor', authMiddleware, requireGroqApiKey, async (req, res) => 
           content: `Refactor this code from file "${filename}":\n\n${code}`
         }
       ],
-      max_tokens: 2048,
+      max_completion_tokens: 2048,
       temperature: 0.3
     });
 
