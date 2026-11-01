@@ -6,6 +6,7 @@ BarChart3, Cpu, FileCode, FolderTree, HeartPulse, Layers, MessageSquare,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAppContext } from '../context/AppContext';
+import { API_BASE_URL } from '../config';
 
 // Neural Network synapse-firing node background
 const NeuralNetworkBackground = () => {
@@ -264,6 +265,8 @@ const Dashboard = ({ navigateTo }) => {
   const {
     repos,
     githubStats,
+    githubConnected,
+    githubChecked,
   } = useAppContext();
 
   const totalRepos = repos.length || githubStats?.public_repos || 0;
@@ -332,7 +335,7 @@ const Dashboard = ({ navigateTo }) => {
           gap: '16px',
           marginBottom: '24px'
         }}>
-          {!githubStats && (
+          {(!githubChecked || !githubConnected) && (
             <div className="glass" style={{
               gridColumn: '1 / -1',
               padding: '30px',
@@ -342,16 +345,19 @@ const Dashboard = ({ navigateTo }) => {
               borderRadius: '12px',
               marginBottom: '20px'
             }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔗</div>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>{githubChecked ? '🔗' : '⏳'}</div>
               <h3 style={{ fontSize: '18px', color: 'white', marginBottom: '8px' }}>
-                GitHub Not Connected
+                {githubChecked ? 'GitHub Not Connected' : 'Checking GitHub connection...'}
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                Connect your GitHub account to see your real repositories, commits, and stats.
+                {githubChecked
+                  ? 'Connect your GitHub account to see your real repositories, commits, and stats.'
+                  : 'Loading your GitHub connection status...'}
               </p>
-              <button
-                onClick={() => window.location.href = 'http://localhost:5000/api/auth/github'}
-                style={{
+              {githubChecked && (
+                <button
+                  onClick={() => window.location.href = `${API_BASE_URL}/api/auth/github`}
+                  style={{
                   padding: '12px 24px',
                   background: 'linear-gradient(135deg, var(--primary-purple), var(--primary-blue))',
                   border: 'none',
@@ -360,10 +366,11 @@ const Dashboard = ({ navigateTo }) => {
                   fontWeight: 700,
                   fontSize: '14px',
                   cursor: 'pointer'
-                }}
-              >
-                Connect GitHub Account
-              </button>
+                  }}
+                >
+                  Connect GitHub Account
+                </button>
+              )}
             </div>
           )}
 

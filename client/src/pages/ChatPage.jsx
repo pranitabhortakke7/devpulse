@@ -5,8 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import Layout from '../components/Layout';
 import { useAppContext } from '../context/AppContext';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from '../config';
 
 // Neural Network synapse-firing node background
 const NeuralNetworkBackground = () => {
@@ -110,10 +109,10 @@ const ChatPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [owner, repoName] = activeRepo.split('/');
 
       const commitsRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+        `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -167,7 +166,7 @@ const ChatPage = ({ navigateTo }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const repoDetails = reposRes.data.find(r => r.name === repoName) || {};
+      const repoDetails = reposRes.data.find(r => r.full_name === activeRepo) || {};
 
       const aiRes = await axios.post(
         `${API_BASE_URL}/api/ai/readme`,

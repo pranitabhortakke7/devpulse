@@ -31,5 +31,16 @@ const UserSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+UserSchema.virtual('githubConnected').get(function () {
+  return Boolean(this.githubAccessToken);
+});
+
+UserSchema.statics.hasGithubConnection = async function (userId) {
+  const user = await this.exists({
+    _id: userId,
+    githubAccessToken: { $exists: true, $nin: [null, ''] }
+  });
+  return Boolean(user);
+};
 
 module.exports = mongoose.model('User', UserSchema);

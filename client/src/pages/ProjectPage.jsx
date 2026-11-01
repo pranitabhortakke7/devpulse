@@ -5,8 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import { useAppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from '../config';
 
 // Neural Network synapse-firing node background
 const NeuralNetworkBackground = () => {
@@ -302,14 +301,14 @@ const ProjectPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [owner, repoName] = activeRepo.split('/');
       console.log('Token:', token);
       console.log('Repo name:', repoName);
       console.log('Active repo:', activeRepo);
 
       // Fetch real commits first
       const commitsRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+        `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log('Commits:', commitsRes.data);
@@ -361,7 +360,7 @@ const ProjectPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [, repoName] = activeRepo.split('/');
 
       // Fetch repo details from GitHub
       const reposRes = await axios.get(
@@ -370,7 +369,7 @@ const ProjectPage = ({ navigateTo }) => {
       );
 
       // Find current active repo details
-      const repoDetails = reposRes.data.find(r => r.name === repoName) || {};
+      const repoDetails = reposRes.data.find(r => r.full_name === activeRepo) || {};
 
       // Send to Groq AI
       const aiRes = await axios.post(

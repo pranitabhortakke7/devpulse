@@ -10,8 +10,7 @@ import {
   FolderTree, ChevronRight, Play, Cpu, RefreshCw, Layers, Check, FileCode, Sparkles, User, Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from './config';
 
 // Custom GitHub SVG Icon
 const Github = (props) => (
@@ -552,9 +551,8 @@ function App() {
 
       try {
         setCommitsLoading(true);
-        const parts = activeRepo.split('/');
-        const repoName = parts.length > 1 ? parts[1] : parts[0];
-        const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits`, {
+        const [owner, repoName] = activeRepo.split('/');
+        const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setCommits(response.data || []);
@@ -622,9 +620,9 @@ function App() {
       if (!token || !activeRepo) return;
 
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/file`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/file?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCodeContent(response.data.content);
@@ -640,9 +638,9 @@ function App() {
       const token = localStorage.getItem('token');
       if (!token || !activeRepo) return;
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/files`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/files?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setRepoFilesList(response.data.files);
@@ -656,8 +654,7 @@ function App() {
   if (!token) return;
   try {
     setAuditLoading(true);
-    const owner = activeRepo.split('/')[0];
-    const repoName = activeRepo.split('/')[1];
+    const [owner, repoName] = activeRepo.split('/');
     const response = await axios.get(
       `${API_BASE_URL}/api/github/security/audit?repo=${repoName}&owner=${owner}`,
       { headers: { Authorization: `Bearer ${token}` } }
@@ -679,11 +676,11 @@ function App() {
       }
 
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
 
         // Fetch commits for analytics
         const commitsRes = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -971,7 +968,7 @@ function App() {
     }
   };
   const handleGithubConnect = () => {
-    window.location.href = 'http://localhost:5000/api/auth/github';
+    window.location.href = `${API_BASE_URL}/api/auth/github`;
   };
 
   // Register identity onboarding sequencer
@@ -1155,9 +1152,9 @@ function App() {
                           setActiveFile(filename);
                           const fetchFile = async () => {
                             const token = localStorage.getItem('token');
-                            const repoName = activeRepo.split('/')[1];
+                            const [owner, repoName] = activeRepo.split('/');
                             const res = await axios.get(
-                              `http://localhost:5000/api/github/repos/${repoName}/file?path=${filename}`,
+                              `${API_BASE_URL}/api/github/repos/${repoName}/file?path=${encodeURIComponent(filename)}&owner=${encodeURIComponent(owner)}`,
                               { headers: { Authorization: `Bearer ${token}` } }
                             );
                             setCodeContent(res.data.content);
@@ -2684,7 +2681,7 @@ function App() {
                   Connect your GitHub account to see your real repositories, commits, and stats.
                 </p>
                 <button
-                  onClick={() => window.location.href = 'http://localhost:5000/api/auth/github'}
+                  onClick={() => window.location.href = `${API_BASE_URL}/api/auth/github`}
                   style={{
                     padding: '12px 24px',
                     background: 'linear-gradient(135deg, var(--primary-purple), var(--primary-blue))',
@@ -2949,14 +2946,14 @@ function App() {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [owner, repoName] = activeRepo.split('/');
       console.log('Token:', token);
       console.log('Repo name:', repoName);
       console.log('Active repo:', activeRepo);
 
       // Fetch real commits first
       const commitsRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+        `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log('Commits:', commitsRes.data);
@@ -3008,7 +3005,7 @@ function App() {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [, repoName] = activeRepo.split('/');
 
       // Fetch repo details from GitHub
       const reposRes = await axios.get(
@@ -3017,7 +3014,7 @@ function App() {
       );
 
       // Find current active repo details
-      const repoDetails = reposRes.data.find(r => r.name === repoName) || {};
+      const repoDetails = reposRes.data.find(r => r.full_name === activeRepo) || {};
 
       // Send to Groq AI
       const aiRes = await axios.post(

@@ -82,7 +82,7 @@ DevPulse serves as an "AI OS Cockpit" for developers, enabling them to:
       │  ├─ Check if user exists by githubId (existing connection)
       │  ├─ If not, check by email (account linking)
       │  ├─ If not, create new User with generated password
-      │  └─ Update githubAccessToken, avatar, githubId
+      │  └─ Update the server-stored OAuth credential, avatar, and GitHub ID
       ├─ Generate JWT and redirect: /auth/callback?token=...&username=...&email=...&avatar=...
       └─ Client: Extract params, store token, navigate to /dashboard
 
@@ -98,7 +98,7 @@ DevPulse serves as an "AI OS Cockpit" for developers, enabling them to:
 2. System fetches user's GitHub repositories
    ├─ Endpoint: GET /api/github/repos
    ├─ Auth: Bearer JWT token
-   ├─ Uses: User's stored githubAccessToken from OAuth
+   ├─ Uses: User's server-stored OAuth credential from OAuth
    └─ Returns: Array of repos (name, language, stars, forks, updated_at, etc.)
    ↓
 3. User selects an active repository
@@ -294,11 +294,7 @@ UserSchema = {
     default: null
     // GitHub user ID when OAuth connected
   },
-  githubAccessToken: {
-    type: String,
-    default: null
-    // Token for GitHub API calls on behalf of user
-  },
+  // Private GitHub OAuth credential, used only by server-side API calls
   avatar: {
     type: String,
     default: ''
@@ -316,7 +312,7 @@ UserSchema = {
 User (1) ──────── (M) GitHub Repositories
    │
    ├─ Has: username, email, password
-   ├─ Has Optional: githubId, githubAccessToken, avatar
+   ├─ Has Optional: githubId, private GitHub OAuth credential, avatar
    └─ Connected to: GitHub user account (external API)
 
 User (1) ──────── (M) API Tokens
@@ -343,7 +339,7 @@ githubId (indexed)        → Foreign key to GitHub platform
 #### GitHub Integration (External Reference)
 ```
 githubId: references GitHub user account ID (external system)
-githubAccessToken: credentials for GitHub API access
+Private GitHub OAuth credential: used only for server-side GitHub API access
 ```
 
 ---
@@ -425,18 +421,18 @@ githubAccessToken: credentials for GitHub API access
 4. User Lookup/Creation Logic:
    ├─ Check: User.findOne({ githubId: String(githubUser.id) })
    ├─ If found:
-   │  └─ Update githubAccessToken, avatar, save()
+   │  └─ Update the server-stored OAuth credential, avatar, save()
    │
    ├─ Else, Check: User.findOne({ email: githubUser.email })
    ├─ If found:
    │  ├─ Link GitHub account to existing user
-   │  └─ Update githubId, githubAccessToken, avatar, save()
+   │  └─ Update githubId, the server-stored OAuth credential, avatar, save()
    │
    └─ Else, Create new User:
       ├─ username: githubUser.login
       ├─ email: githubUser.email || `${githubUser.login}@github.com`
       ├─ password: bcryptjs.hash(Math.random().toString(36), 10)
-      ├─ githubId, githubAccessToken, avatar
+      ├─ githubId, private OAuth credential, avatar
       └─ user.save()
 
 5. Generate JWT:
@@ -625,7 +621,7 @@ HTTPS:
 #### GitHub Token Access Control
 ```javascript
 // User's GitHub access token stored in database
-githubAccessToken: "gho_..."  // GitHub personal access token
+// Private GitHub OAuth credential stored server-side only; never returned to the client
 
 // Token used for:
 ├─ Fetching user's own repositories
@@ -930,7 +926,7 @@ Limitation:
 #### 5. **GitHub Access Through User's Token (No OAuth App Token)**
 ```
 Implementation:
-  └─ Each API call uses user's githubAccessToken (from OAuth)
+  └─ Each API call uses the user's server-stored OAuth credential
 
 Design Choice:
   ├─ User-centric permissions

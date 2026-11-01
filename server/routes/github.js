@@ -17,17 +17,29 @@ const getUserHeaders = async (userId) => {
   };
 };
 
+const resolveOwner = async (req, headers) => {
+  if (req.query.owner) return req.query.owner;
+
+  const response = await axios.get(`${GITHUB_API}/user`, { headers });
+  return response.data.login;
+};
+
+const getDefaultBranch = async (owner, repo, headers) => {
+  const response = await axios.get(
+    `${GITHUB_API}/repos/${owner}/${repo}`,
+    { headers }
+  );
+  return response.data.default_branch || 'main';
+};
+
 // GET all repos
 router.get('/repos', authMiddleware, async (req, res) => {
-  const headers = await getUserHeaders(req.user.id);
-  if (!headers) {
-    return res.status(401).json({
-      message: 'GitHub not connected',
-      notConnected: true
-    });
-  }
-
   try {
+    const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
+
     const response = await axios.get(
       `${GITHUB_API}/user/repos?sort=updated&per_page=20`,
       { headers }
@@ -54,20 +66,17 @@ router.get('/repos', authMiddleware, async (req, res) => {
 
 // GET commits for a repo
 router.get('/repos/:repoName/commits', authMiddleware, async (req, res) => {
-  const headers = await getUserHeaders(req.user.id);
-  if (!headers) {
-    return res.status(401).json({
-      message: 'GitHub not connected',
-      notConnected: true
-    });
-  }
-
   try {
     const { repoName } = req.params;
     const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
+    const owner = await resolveOwner(req, headers);
+    const branch = await getDefaultBranch(owner, repoName, headers);
 
     const response = await axios.get(
-      `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/commits?per_page=10`,
+      `${GITHUB_API}/repos/${owner}/${repoName}/commits?sha=${encodeURIComponent(branch)}&per_page=10`,
       { headers }
     );
 
@@ -89,8 +98,11 @@ router.get('/repos/:repoName/commits', authMiddleware, async (req, res) => {
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
     const response = await axios.get(
-      `${GITHUB_API}/users/${process.env.GITHUB_USERNAME}`,
+      `${GITHUB_API}/user`,
       { headers }
     );
 
@@ -106,6 +118,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
     res.json(stats);
   } catch (err) {
+    console.error('Failed to fetch GitHub stats:', err);
     res.status(500).json({ message: 'GitHub API error', error: err.message });
   }
 });
@@ -115,12 +128,16 @@ router.get('/repos/:repoName/file', authMiddleware, async (req, res) => {
   try {
     const { repoName } = req.params;
     const { path } = req.query;
-
     const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
+    const owner = await resolveOwner(req, headers);
+    const branch = await getDefaultBranch(owner, repoName, headers);
 
     // First get file tree
     const treeRes = await axios.get(
-      `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/git/trees/main?recursive=1`,
+      `${GITHUB_API}/repos/${owner}/${repoName}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
       { headers }
     );
 
@@ -135,8 +152,8 @@ router.get('/repos/:repoName/file', authMiddleware, async (req, res) => {
 
     // Get file content
     const contentRes = await axios.get(
-      `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/contents/${filePath}`,
-      { headers }
+      `${GITHUB_API}/repos/${owner}/${repoName}/contents/${filePath}`,
+      { headers, params: { ref: branch } }
     );
 
     // Decode base64 content
@@ -152,25 +169,32 @@ router.get('/repos/:repoName/file', authMiddleware, async (req, res) => {
 router.get('/repos/:repoName/files', authMiddleware, async (req, res) => {
   try {
     const { repoName } = req.params;
-
     const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
+    const owner = await resolveOwner(req, headers);
+    const branch = await getDefaultBranch(owner, repoName, headers);
 
-    const treeRes = await axios.get(
-      `${GITHUB_API}/repos/${process.env.GITHUB_USERNAME}/${repoName}/git/trees/main?recursive=1`,
-      { headers }
-    );
+    let treeRes;
+    try {
+      treeRes = await axios.get(
+        `${GITHUB_API}/repos/${owner}/${repoName}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+        { headers }
+      );
+    } catch (err) {
+      if (err.response?.status === 404 || err.response?.status === 409) {
+        return res.json({ files: [] });
+      }
+      throw err;
+    }
 
     const files = treeRes.data.tree
       .filter(f => f.type === 'blob' &&
-        (f.path.endsWith('.jsx') ||
-         f.path.endsWith('.js') ||
-         f.path.endsWith('.ts') ||
-         f.path.endsWith('.css') ||
-         f.path.endsWith('.json')) &&
-        !f.path.includes('node_modules') &&
-        !f.path.includes('eslint') &&
-        !f.path.includes('dist'))
-      .slice(0, 15)
+        /\.(js|jsx|ts|tsx|py|java|c|cpp|cs|go|rb|php|html|css|scss|sql|md|json)$/i.test(f.path) &&
+        !/(^|\/)(node_modules|dist|build|\.git)(\/|$)/i.test(f.path) &&
+        !/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(f.path))
+      .slice(0, 50)
       .map(f => f.path);
 
     res.json({ files });
@@ -183,8 +207,12 @@ router.get('/repos/:repoName/files', authMiddleware, async (req, res) => {
 router.get('/security/audit', authMiddleware, async (req, res) => {
   try {
     const repoName = req.query.repo || 'devpulse';
-    const owner = req.query.owner || process.env.GITHUB_USERNAME;
     const headers = await getUserHeaders(req.user.id);
+    if (!headers) {
+      return res.status(401).json({ message: 'GitHub not connected', notConnected: true });
+    }
+    const owner = await resolveOwner(req, headers);
+    const branch = await getDefaultBranch(owner, repoName, headers);
 
     // Get package.json from repo to extract dependencies
     let packageJson = { dependencies: {}, devDependencies: {} };
@@ -193,7 +221,7 @@ router.get('/security/audit', authMiddleware, async (req, res) => {
       // Try root package.json first
       const packageRes = await axios.get(
         `${GITHUB_API}/repos/${owner}/${repoName}/contents/package.json`,
-        { headers }
+        { headers, params: { ref: branch } }
       );
       packageJson = JSON.parse(
         Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
@@ -203,7 +231,7 @@ router.get('/security/audit', authMiddleware, async (req, res) => {
       try {
         const packageRes = await axios.get(
           `${GITHUB_API}/repos/${owner}/${repoName}/contents/client/package.json`,
-          { headers }
+          { headers, params: { ref: branch } }
         );
         packageJson = JSON.parse(
           Buffer.from(packageRes.data.content, 'base64').toString('utf-8')
@@ -304,4 +332,3 @@ router.get('/security/audit', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

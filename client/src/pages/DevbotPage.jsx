@@ -9,8 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { HoloDevBot } from '../components/DevBot';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from '../config';
 
 // Simple code formatting highligher
 const syntaxHighlight = (code) => {
@@ -50,6 +49,7 @@ const DevbotPage = ({ navigateTo }) => {
     currentPath, setCurrentPath,
     activeRepo, setActiveRepo,
     repos, repoLoading,
+    githubConnected, githubChecked,
     activeFile, setActiveFile,
     codeContent, setCodeContent,
     repoFilesList,
@@ -221,10 +221,10 @@ const DevbotPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
+      const [owner, repoName] = activeRepo.split('/');
 
       const commitsRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+        `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -271,14 +271,13 @@ const DevbotPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const repoName = activeRepo.split('/')[1];
 
       const reposRes = await axios.get(
         `${API_BASE_URL}/api/github/repos`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const repoDetails = reposRes.data.find(r => r.name === repoName) || {};
+      const repoDetails = reposRes.data.find(r => r.full_name === activeRepo) || {};
 
       const aiRes = await axios.post(
         `${API_BASE_URL}/api/ai/readme`,
@@ -346,8 +345,12 @@ const DevbotPage = ({ navigateTo }) => {
             >
               {repoLoading ? (
                 <option disabled>{'Loading repos...'}</option>
-              ) : repos.length === 0 ? (
+              ) : !githubChecked ? (
+                <option disabled>{'Loading repos...'}</option>
+              ) : !githubConnected ? (
                 <option disabled>{'Connect GitHub to see repos'}</option>
+              ) : repos.length === 0 ? (
+                <option disabled>{'No repositories found'}</option>
               ) : (
                 repos.map(repo => (
                   <option key={repo.full_name} value={repo.full_name} style={{ background: '#050816' }}>
@@ -377,7 +380,11 @@ const DevbotPage = ({ navigateTo }) => {
                   }}
                 >
                   <div style={{ marginBottom: '8px' }}>📁</div>
-                  Connect GitHub to see files
+                  {!githubChecked
+                    ? 'Loading files...'
+                    : !githubConnected
+                      ? 'Connect GitHub to see files'
+                      : 'No supported source files found in this repository'}
                 </div>
               ) : (
                 repoFilesList.map((filename) => {
@@ -389,9 +396,9 @@ const DevbotPage = ({ navigateTo }) => {
                         setActiveFile(filename);
                         const fetchFile = async () => {
                           const token = localStorage.getItem('token');
-                          const repoName = activeRepo.split('/')[1];
+                          const [owner, repoName] = activeRepo.split('/');
                           const res = await axios.get(
-                            `${API_BASE_URL}/api/github/repos/${repoName}/file?path=${filename}`,
+                            `${API_BASE_URL}/api/github/repos/${repoName}/file?path=${encodeURIComponent(filename)}&owner=${encodeURIComponent(owner)}`,
                             { headers: { Authorization: `Bearer ${token}` } }
                           );
                           setCodeContent(res.data.content);

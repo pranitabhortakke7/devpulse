@@ -33,7 +33,12 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       token,
-      user: { id: user._id, username: user.username, email: user.email }
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        githubConnected: user.githubConnected
+      }
     });
 
   } catch (err) {
@@ -65,7 +70,12 @@ router.post('/login', async (req, res) => {
 
     res.json({
       token,
-      user: { id: user._id, username: user.username, email: user.email }
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        githubConnected: user.githubConnected
+      }
     });
 
   } catch (err) {
@@ -78,8 +88,19 @@ router.get('/me', async (req, res) => {
   const authMiddleware = require('../middleware/auth');
   authMiddleware(req, res, async () => {
     try {
-      const user = await User.findById(req.user.id).select('-password');
-      res.json(user);
+      const user = await User.findById(req.user.id).select('-password -githubAccessToken');
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      const githubConnected = await User.hasGithubConnection(user._id);
+      res.json({
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        githubConnected,
+        createdAt: user.createdAt
+      });
     } catch (err) {
       res.status(500).json({ message: 'Server error' });
     }

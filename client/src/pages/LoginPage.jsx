@@ -4,8 +4,7 @@ import { Sparkles, Terminal, RefreshCw, Cpu, Code } from 'lucide-react';
 import axios from 'axios';
 import Layout from '../components/Layout';
 import { useAppContext } from '../context/AppContext';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from '../config';
 
 // Custom GitHub SVG Icon
 const Github = (props) => (
@@ -76,6 +75,7 @@ const LoginPage = ({ navigateTo }) => {
       // Save to localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      window.dispatchEvent(new Event('auth-token-changed'));
 
       setTimeout(() => {
         setLoginLogs(prev => [...prev, '✓ HANDSHAKE ACCEPTED. Redirecting to cockpit...']);
@@ -95,7 +95,7 @@ const LoginPage = ({ navigateTo }) => {
   };
 
   const handleGithubConnect = () => {
-    window.location.href = 'http://localhost:5000/api/auth/github';
+    window.location.href = `${API_BASE_URL}/api/auth/github`;
   };
 
   // Register identity onboarding sequencer
@@ -133,6 +133,7 @@ const LoginPage = ({ navigateTo }) => {
       // Save to localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      window.dispatchEvent(new Event('auth-token-changed'));
 
       setTimeout(() => {
         setRegLogs(prev => [...prev, '✓ ONBOARDING SUCCESSFUL. Decrypting global cores...']);

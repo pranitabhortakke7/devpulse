@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+import { API_BASE_URL } from '../config';
 
 const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   // ===== Routing State =====
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('token'));
 
   // ===== GitHub / Repo State =====
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubChecked, setGithubChecked] = useState(false);
   const [githubStats, setGithubStats] = useState(null);
   const [repos, setRepos] = useState([]);
   const [repoLoading, setRepoLoading] = useState(false);
@@ -51,12 +53,65 @@ export const AppContextProvider = ({ children }) => {
   const [readmeContent, setReadmeContent] = useState('');
   const [readmeLoading, setReadmeLoading] = useState(false);
 
-  // ===== Main useEffect: popstate router + fetchRepos + fetchGithubStats =====
+  // ===== Main useEffect: popstate router and authentication changes =====
   useEffect(() => {
     const handleLocationChange = () => {
       setCurrentPath(window.location.pathname + window.location.search);
     };
+    const handleAuthTokenChange = () => {
+      setAuthToken(localStorage.getItem('token'));
+    };
     window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('auth-token-changed', handleAuthTokenChange);
+    window.addEventListener('storage', handleAuthTokenChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('auth-token-changed', handleAuthTokenChange);
+      window.removeEventListener('storage', handleAuthTokenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setGithubChecked(false);
+
+    if (!authToken) {
+      setGithubConnected(false);
+      setGithubChecked(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    axios.get(`${API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
+      .then(response => {
+        if (!cancelled) setGithubConnected(!!response.data.githubConnected);
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Failed to check GitHub connection:', err);
+          setGithubConnected(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGithubChecked(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken]);
+
+  useEffect(() => {
+    if (!githubChecked || !githubConnected || !authToken) {
+      setRepos([]);
+      setGithubStats(null);
+      setRepoLoading(false);
+      return;
+    }
 
     const fetchRepos = async () => {
       const token = localStorage.getItem('token');
@@ -95,23 +150,21 @@ export const AppContextProvider = ({ children }) => {
 
     fetchGithubStats();
 
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
+  }, [githubChecked, githubConnected, authToken]);
 
   // ===== Fetch commits for the selected repository =====
   useEffect(() => {
     const fetchCommits = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !activeRepo) {
+      if (!githubChecked || !githubConnected || !token || !activeRepo) {
         setCommits([]);
         return;
       }
 
       try {
         setCommitsLoading(true);
-        const parts = activeRepo.split('/');
-        const repoName = parts.length > 1 ? parts[1] : parts[0];
-        const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits`, {
+        const [owner, repoName] = activeRepo.split('/');
+        const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setCommits(response.data || []);
@@ -124,18 +177,18 @@ export const AppContextProvider = ({ children }) => {
     };
 
     fetchCommits();
-  }, [activeRepo]);
+  }, [activeRepo, githubChecked, githubConnected, authToken]);
 
   // ===== Sync code view / files / security audit / analytics when repository changes =====
   useEffect(() => {
     const fetchFileContent = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !activeRepo) return;
+      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
 
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/file`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/file?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCodeContent(response.data.content);
@@ -148,11 +201,11 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchFilesList = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !activeRepo) return;
+      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/files`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/files?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setRepoFilesList(response.data.files);
@@ -163,13 +216,13 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchSecurityAudit = async () => {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
       try {
         setAuditLoading(true);
-        const owner = activeRepo.split('/')[0];
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
+        const params = new URLSearchParams({ repo: repoName, owner });
         const response = await axios.get(
-          `${API_BASE_URL}/api/github/security/audit?repo=${repoName}&owner=${owner}`,
+          `${API_BASE_URL}/api/github/security/audit?${params}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setAuditData(response.data);
@@ -183,17 +236,17 @@ export const AppContextProvider = ({ children }) => {
     // Fetch analytics data
     const fetchAnalytics = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !activeRepo) {
+      if (!githubChecked || !githubConnected || !token || !activeRepo) {
         setAnalyticsData(null);
         return;
       }
 
       try {
-        const repoName = activeRepo.split('/')[1];
+        const [owner, repoName] = activeRepo.split('/');
 
         // Fetch commits for analytics
         const commitsRes = await axios.get(
-          `${API_BASE_URL}/api/github/repos/${repoName}/commits`,
+          `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -235,7 +288,19 @@ export const AppContextProvider = ({ children }) => {
     fetchFilesList();
     fetchSecurityAudit();
     fetchAnalytics();
-  }, [activeRepo]);
+  }, [activeRepo, githubChecked, githubConnected, authToken]);
+
+  useEffect(() => {
+    if (!githubChecked || !githubConnected) {
+      setRepoFilesList([]);
+      setCodeContent('');
+      setAuditData(null);
+      setAuditLoading(false);
+      setAnalyticsData(null);
+      setCommits([]);
+      setCommitsLoading(false);
+    }
+  }, [githubChecked, githubConnected]);
 
   const value = {
     // Routing
@@ -243,6 +308,8 @@ export const AppContextProvider = ({ children }) => {
     setCurrentPath,
 
     // GitHub / Repo
+    githubConnected,
+    githubChecked,
     githubStats,
     setGithubStats,
     repos,

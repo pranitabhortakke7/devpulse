@@ -9,6 +9,8 @@ import Layout from '../components/Layout';
 const ProfilePage = ({ navigateTo }) => {
   const {
     githubStats,
+    githubConnected,
+    githubChecked,
     repos,
   } = useAppContext();
 
@@ -19,6 +21,7 @@ const ProfilePage = ({ navigateTo }) => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event('auth-token-changed'));
     navigateTo('/login');
   };
 
@@ -102,10 +105,12 @@ const ProfilePage = ({ navigateTo }) => {
                 <div className="glass" style={{ padding: '18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>GitHub</span>
-                    <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 700 }}>Connected</span>
+                    <span style={{ fontSize: '12px', color: !githubChecked ? 'var(--text-muted)' : githubConnected ? '#34d399' : '#f87171', fontWeight: 700 }}>
+                      {!githubChecked ? 'Checking...' : githubConnected ? 'Connected' : 'Not Connected'}
+                    </span>
                   </div>
                   <div style={{ fontSize: '23px', color: 'white', fontWeight: 800 }}>
-                    {githubStats?.username || 'Not Connected'}
+                    {githubStats?.username || (githubConnected ? loggedInUsername : githubChecked ? 'Not Connected' : 'Loading...')}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px' }}>Managed via OAuth with repo sync, pull request scoring, and security insights.</div>
                 </div>

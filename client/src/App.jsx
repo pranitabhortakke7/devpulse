@@ -41,8 +41,7 @@ function App() {
           avatar: decodeURIComponent(avatar)
         })
       );
-      window.history.pushState({}, '', '/dashboard');
-      setCurrentPath('/dashboard');
+      window.location.replace('/dashboard');
     } else {
       navigateTo('/login');
     }
