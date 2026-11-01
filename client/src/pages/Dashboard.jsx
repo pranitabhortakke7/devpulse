@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
 BarChart3, Cpu, FileCode, FolderTree, HeartPulse, Layers, MessageSquare,
@@ -180,82 +180,6 @@ const ProductivityReactor = ({ score = 94, status = 'boosting' }) => {
         <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)', background: 'rgba(34, 211, 238, 0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(34, 211, 238, 0.15)' }}>
           CORE STATE: {status === 'boosting' ? 'BOOSTING_OVERDRIVE' : 'STABLE_CORE'}
         </span>
-      </div>
-    </div>
-  );
-};
-
-// Simulated rolling code events feed
-const LiveActivityFeed = () => {
-  const [events, setEvents] = useState([
-    { id: 1, time: '15:20:11', desc: 'Sync complete: 12 repository files vectorised.', type: 'info' },
-    { id: 2, time: '15:22:45', desc: 'AI refactor patch applied inside Layout.jsx.', type: 'success' },
-    { id: 3, time: '15:25:02', desc: 'Commit #ef435a pushed by pranitabhortakke7.', type: 'cmd' },
-    { id: 4, time: '15:28:14', desc: 'Vulnerability scan complete: 0 critical alerts.', type: 'success' },
-    { id: 5, time: '15:30:01', desc: 'API handshake request: 84ms latency score.', type: 'info' }
-  ]);
-
-  useEffect(() => {
-    const logPool = [
-      { desc: 'Synchronising local repo embeddings...', type: 'info' },
-      { desc: 'PR #14 branch merged: release-v1.1.0.', type: 'success' },
-      { desc: 'DevBot completed code optimization scan.', type: 'info' },
-      { desc: 'Commit #db521a pushed to main branch.', type: 'cmd' },
-      { desc: 'GPU neural mapping: load at 34%.', type: 'info' },
-      { desc: 'Dependency audit: checked 1,842 files.', type: 'success' },
-      { desc: 'AI suggests memoizing rendering layout loops.', type: 'warn' }
-    ];
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0];
-      const randomLog = logPool[Math.floor(Math.random() * logPool.length)];
-      const newLog = {
-        id: Date.now(),
-        time: timeStr,
-        desc: randomLog.desc,
-        type: randomLog.type
-      };
-      setEvents(prev => [newLog, ...prev.slice(0, 5)]);
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="activity-ticker-container">
-      <div className="activity-ticker-list">
-        {events.map((evt) => (
-          <div
-            key={evt.id}
-            className="ticker-item-new"
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-              fontSize: '12px',
-              fontFamily: 'var(--font-mono)',
-              padding: '10px 14px',
-              background: 'rgba(255,255,255,0.01)',
-              border: '1px solid rgba(255,255,255,0.03)',
-              borderRadius: '8px'
-            }}
-          >
-            <span style={{ color: 'var(--text-muted)' }}>[{evt.time}]</span>
-            <span style={{
-              color: evt.type === 'success'
-                ? '#10b981'
-                : evt.type === 'warn'
-                  ? '#F59E0B'
-                  : evt.type === 'cmd'
-                    ? 'var(--primary-cyan)'
-                    : '#ffffff',
-              flex: 1
-            }}>
-              {evt.desc}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -466,6 +390,41 @@ const Dashboard = ({ navigateTo }) => {
               </svg>
             </div>
 
+          </div>
+
+          {/* RIGHT COLUMN: AI Insights & Command Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* AI Insights Board */}
+            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '16px', fontWeight: 700 }}>AI Core Insights</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[
+                  { text: 'Peak coding efficiency mapped between 10:00 - 12:00. Recommend scheduling complex tasks in this frame.', icon: Sparkles, color: 'var(--primary-cyan)' },
+                  { text: 'Active repository structures show high modular index score. Keep component files loaded lazily.', icon: FileCode, color: 'var(--primary-purple)' },
+                  { text: 'Burnout notice: 4.5 consecutive hours coding loops detected. Suggest taking a 15-minute rest interval.', icon: HeartPulse, color: '#EF4444' }
+                ].map((insight, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      fontSize: '12px',
+                      lineHeight: '1.6',
+                      padding: '12px 14px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '8px',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    <insight.icon size={16} color={insight.color} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span>{insight.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Quick actions button deck */}
             <div className="glass" style={{ padding: '20px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(255,255,255,0.05)' }}>
               <h3 style={{ fontSize: '14px', color: 'white', marginBottom: '14px', fontWeight: 700, letterSpacing: '0.5px' }}>Command Actions</h3>
@@ -505,55 +464,6 @@ const Dashboard = ({ navigateTo }) => {
                     <btn.icon size={13} color="var(--primary-cyan)" />
                     {btn.label}
                   </button>
-                ))}
-              </div>
-            </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: Scrolling Live Feed & AI Insights */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-            {/* Scrolling Live Ticker Feed */}
-            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '16px', color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', animation: 'pulse-glow 2s infinite ease-in-out' }} />
-                  Live Activity Stream
-                </h3>
-                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>active ticks: online</span>
-              </div>
-
-              {/* Scrolling ticker */}
-              <LiveActivityFeed />
-            </div>
-
-            {/* AI Insights Board */}
-            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.55)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <h3 style={{ fontSize: '16px', color: 'white', marginBottom: '16px', fontWeight: 700 }}>AI Core Insights</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[
-                  { text: 'Peak coding efficiency mapped between 10:00 - 12:00. Recommend scheduling complex tasks in this frame.', icon: Sparkles, color: 'var(--primary-cyan)' },
-                  { text: 'Active repository structures show high modular index score. Keep component files loaded lazily.', icon: FileCode, color: 'var(--primary-purple)' },
-                  { text: 'Burnout notice: 4.5 consecutive hours coding loops detected. Suggest taking a 15-minute rest interval.', icon: HeartPulse, color: '#EF4444' }
-                ].map((insight, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      fontSize: '12px',
-                      lineHeight: '1.6',
-                      padding: '12px 14px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '8px',
-                      color: 'var(--text-secondary)'
-                    }}
-                  >
-                    <insight.icon size={16} color={insight.color} style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <span>{insight.text}</span>
-                  </div>
                 ))}
               </div>
             </div>

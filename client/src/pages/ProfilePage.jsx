@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  Activity, Code, FileCode, FileText, HeartPulse, Key, MessageSquare, Shield, Sparkles, User, Zap
+  FileCode, FileText, Key, MessageSquare, User
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
@@ -15,15 +15,8 @@ const ProfilePage = ({ navigateTo }) => {
   } = useAppContext();
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const loggedInUsername = storedUser?.username || 'Operator';
+  const loggedInUsername = storedUser?.username || '';
   const loggedInEmail = storedUser?.email || '';
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.dispatchEvent(new Event('auth-token-changed'));
-    navigateTo('/login');
-  };
 
   return (
     <Layout currentPath="/profile" navigateTo={navigateTo}>
@@ -55,7 +48,7 @@ const ProfilePage = ({ navigateTo }) => {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.95fr', gap: '24px', minHeight: 'calc(100vh - 190px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'start' }}>
           <div style={{ display: 'grid', gap: '24px' }}>
             {/* Profile Identity + GitHub status card */}
             <div className="glass" style={{ padding: '28px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -127,6 +120,30 @@ const ProfilePage = ({ navigateTo }) => {
               </div>
             </div>
 
+            {/* Repositories Managed */}
+            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', color: 'white', margin: 0 }}>Repositories Managed</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>Sync status across your active repo portfolio.</p>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--primary-purple)', fontWeight: 700 }}>{repos.length || 0} repos</span>
+              </div>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {repos.length > 0 ? repos.slice(0, 4).map((repo) => (
+                  <div key={repo.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
+                    <span style={{ color: 'white', fontSize: '13px' }}>{repo.name}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Synced</span>
+                  </div>
+                )) : (
+                  <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center' }}>No repositories found</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          <div style={{ display: 'grid', gap: '24px', alignContent: 'start' }}>
             {/* DevBot Usage Statistics */}
             <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -147,27 +164,6 @@ const ProfilePage = ({ navigateTo }) => {
                     <metric.icon size={18} color="var(--primary-cyan)" />
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Repositories Managed */}
-            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <div>
-                  <h3 style={{ fontSize: '18px', color: 'white', margin: 0 }}>Repositories Managed</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>Sync status across your active repo portfolio.</p>
-                </div>
-                <span style={{ fontSize: '12px', color: 'var(--primary-purple)', fontWeight: 700 }}>{repos.length || 0} repos</span>
-              </div>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {repos.length > 0 ? repos.slice(0, 4).map((repo) => (
-                  <div key={repo.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
-                    <span style={{ color: 'white', fontSize: '13px' }}>{repo.name}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Synced</span>
-                  </div>
-                )) : (
-                  <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center' }}>No repositories found</div>
-                )}
               </div>
             </div>
 
@@ -193,109 +189,6 @@ const ProfilePage = ({ navigateTo }) => {
                 ))}
               </div>
             </div>
-          </div>
-
-          <div style={{ position: 'relative', minHeight: '720px', display: 'grid', gap: '24px' }}>
-            {/* Floating Stack Orbit */}
-            <div className="glass" style={{ padding: '28px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)', minHeight: '360px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '18px', color: 'white', margin: 0 }}>Floating Stack Orbit</h3>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tech pulse</span>
-              </div>
-
-              <div style={{ position: 'relative', width: '100%', height: '340px' }}>
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
-                  style={{
-                    position: 'absolute',
-                    inset: '0',
-                    borderRadius: '50%',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '0 0 40px rgba(34, 211, 238, 0.08)'
-                  }}
-                />
-
-                {[
-                  { icon: Code, label: 'React', x: '16%', y: '25%', delay: 0 },
-                  { icon: FileText, label: 'Docs', x: '74%', y: '18%', delay: 0.6 },
-                  { icon: Shield, label: 'Security', x: '82%', y: '68%', delay: 1.2 },
-                  { icon: Zap, label: 'Automation', x: '44%', y: '80%', delay: 1.8 },
-                  { icon: Activity, label: 'AI', x: '12%', y: '66%', delay: 2.4 }
-                ].map((item, index) => (
-                  <motion.div
-                    key={item.label}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: [0.96, 1.05, 0.96] }}
-                    transition={{ delay: item.delay, duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{
-                      position: 'absolute',
-                      top: item.y,
-                      left: item.x,
-                      transform: 'translate(-50%, -50%)',
-                      width: '72px',
-                      height: '72px',
-                      borderRadius: '20px',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 0 20px rgba(0,0,0,0.2)'
-                    }}
-                  >
-                    <item.icon size={24} color="var(--primary-cyan)" />
-                  </motion.div>
-                ))}
-
-                <motion.div
-                  animate={{ y: [-4, 4, -4] }}
-                  transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut' }}
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '170px',
-                    height: '170px',
-                    transform: 'translate(-50%, -50%)',
-                    borderRadius: '30px',
-                    background: 'rgba(6, 10, 26, 0.8)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 0 30px rgba(34, 211, 238, 0.18)'
-                  }}
-                >
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ marginBottom: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '52px', height: '52px', borderRadius: '18px', background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(34, 211, 238, 0.2))' }}>
-                      <User size={24} color="white" />
-                    </div>
-                    <h4 style={{ color: 'white', fontSize: '16px', margin: 0 }}>Core Profile</h4>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '6px' }}>Secure identity and cloud connection layer.</p>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              style={{
-                width: '100%',
-                marginTop: '8px',
-                padding: '16px',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.08)',
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>

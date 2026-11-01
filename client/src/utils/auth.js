@@ -10,4 +10,5 @@ export const isLoggedIn = () => !!localStorage.getItem('token');
 export const clearAuth = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  window.location.replace('/login');
 };

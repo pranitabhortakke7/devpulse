@@ -122,7 +122,7 @@ const NeuralNetworkBackground = () => {
 };
 
 // Project Planet Interactive Canvas Visualization
-const ProjectPlanet = () => {
+const ProjectPlanet = ({ owner }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -156,7 +156,7 @@ const ProjectPlanet = () => {
 
     const particles = [
       { radius: 55, speed: 0.008, size: 4, color: primaryCyan, label: 'commit: #ef435a' },
-      { radius: 80, speed: -0.006, size: 5, color: primaryPurple, label: 'author: pranitabhortakke7' },
+      { radius: 80, speed: -0.006, size: 5, color: primaryPurple, label: `owner: ${owner}` },
       { radius: 110, speed: 0.004, size: 4.5, color: primaryBlue, label: 'action: merge release-v1.1.0' },
       { radius: 70, speed: 0.009, size: 3, color: '#10b981', label: 'scan: vulnerability safe' }
     ];
@@ -256,7 +256,7 @@ const ProjectPlanet = () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [owner]);
 
   return (
     <div style={{ position: 'relative', width: '300px', height: '300px', margin: '0 auto' }}>
@@ -267,11 +267,14 @@ const ProjectPlanet = () => {
 
 const ProjectPage = ({ navigateTo }) => {
   const {
-    activeRepo, setActiveRepo,
+    repos, activeRepo, setActiveRepo, githubConnected, githubChecked, repoLoading,
     commits, commitsLoading,
     changelogContent, setChangelogContent, changelogLoading, setChangelogLoading,
     readmeContent, setReadmeContent, readmeLoading, setReadmeLoading,
   } = useAppContext();
+  const selectedRepo = repos.find(repo => repo.full_name === activeRepo);
+  const repoOwner = selectedRepo?.full_name.split('/')[0] || '';
+  const commitAuthors = [...new Set(commits.map(commit => commit.author).filter(Boolean))];
 
   // Local states not in AppContext
   const [changelogLogs, setChangelogLogs] = useState([]);
@@ -280,6 +283,7 @@ const ProjectPage = ({ navigateTo }) => {
 
   // AI Changelog generator (project page version)
   const handleGenerateChangelog = async () => {
+    if (!selectedRepo) return;
     console.log('Changelog button clicked!');
     setChangelogLoading(true);
     setChangelogLogs([]);
@@ -301,29 +305,15 @@ const ProjectPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const [owner, repoName] = activeRepo.split('/');
-      console.log('Token:', token);
-      console.log('Repo name:', repoName);
-      console.log('Active repo:', activeRepo);
-
-      // Fetch real commits first
-      const commitsRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      console.log('Commits:', commitsRes.data);
-
       // Send commits to Groq AI
       const aiRes = await axios.post(
         `${API_BASE_URL}/api/ai/changelog`,
         {
-          commits: commitsRes.data,
+          commits,
           repoName: activeRepo
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log('AI Response:', aiRes.data);
-
       setTimeout(() => {
         setChangelogContent(aiRes.data.changelog);
         setChangelogLoading(false);
@@ -340,6 +330,7 @@ const ProjectPage = ({ navigateTo }) => {
 
   // AI README generator (project page version)
   const handleGenerateReadme = async () => {
+    if (!selectedRepo) return;
     setReadmeLoading(true);
     setReadmeLogs([]);
     setReadmeContent('');
@@ -360,24 +351,14 @@ const ProjectPage = ({ navigateTo }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const [, repoName] = activeRepo.split('/');
-
-      // Fetch repo details from GitHub
-      const reposRes = await axios.get(
-        `${API_BASE_URL}/api/github/repos`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // Find current active repo details
-      const repoDetails = reposRes.data.find(r => r.full_name === activeRepo) || {};
 
       // Send to Groq AI
       const aiRes = await axios.post(
         `${API_BASE_URL}/api/ai/readme`,
         {
           repoName: activeRepo,
-          description: repoDetails.description,
-          language: repoDetails.language
+          description: selectedRepo.description,
+          language: selectedRepo.language
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -417,6 +398,7 @@ const ProjectPage = ({ navigateTo }) => {
             <select
               value={activeRepo}
               onChange={(e) => setActiveRepo(e.target.value)}
+              disabled={!githubChecked || !githubConnected || repoLoading || repos.length === 0}
               style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid var(--glass-border)',
@@ -428,12 +410,45 @@ const ProjectPage = ({ navigateTo }) => {
                 cursor: 'pointer'
               }}
             >
-              <option value="pranitabhortakke7/devpulse" style={{ background: '#050816' }}>pranitabhortakke7/devpulse</option>
-              <option value="vercel/next.js" style={{ background: '#050816' }}>vercel/next.js</option>
+              {!githubChecked || repoLoading ? (
+                <option value="" style={{ background: '#050816' }}>Loading repos...</option>
+              ) : !githubConnected ? (
+                <option value="" style={{ background: '#050816' }}>Connect GitHub to see projects</option>
+              ) : repos.length === 0 ? (
+                <option value="" style={{ background: '#050816' }}>No repositories found</option>
+              ) : (
+                repos.map(repo => (
+                  <option key={repo.id} value={repo.full_name} style={{ background: '#050816' }}>
+                    {repo.full_name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
 
+        {!githubChecked && (
+          <div className="glass" style={{ padding: '24px', color: 'var(--text-secondary)' }}>Loading repos...</div>
+        )}
+        {githubChecked && !githubConnected && (
+          <div className="glass" style={{ padding: '24px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Connect GitHub to see your projects.</p>
+            <button
+              onClick={() => { window.location.href = `${API_BASE_URL}/api/auth/github`; }}
+              style={{ padding: '10px 16px', background: 'linear-gradient(135deg, var(--primary-cyan), var(--primary-blue))', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Connect GitHub
+            </button>
+          </div>
+        )}
+        {githubChecked && githubConnected && repoLoading && (
+          <div className="glass" style={{ padding: '24px', color: 'var(--text-secondary)' }}>Loading repos...</div>
+        )}
+        {githubChecked && githubConnected && !repoLoading && !selectedRepo && (
+          <div className="glass" style={{ padding: '24px', color: 'var(--text-secondary)' }}>No repositories found.</div>
+        )}
+        {githubChecked && githubConnected && !repoLoading && selectedRepo && (
+          <>
         {/* Centerpiece planet & health ring columns */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '24px' }}>
 
@@ -442,7 +457,7 @@ const ProjectPage = ({ navigateTo }) => {
             <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px', alignSelf: 'flex-start' }}>
               Commit Vectors Core
             </div>
-            <ProjectPlanet />
+            <ProjectPlanet owner={repoOwner} />
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
               Hover orbit particles to scan commit metadata
             </div>
@@ -548,13 +563,13 @@ const ProjectPage = ({ navigateTo }) => {
 
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' }}>
                 <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', background: 'rgba(124, 58, 237, 0.08)', color: 'var(--primary-purple)', padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(124, 58, 237, 0.15)' }}>
-                  LANGUAGE: JavaScript (94%)
+                  LANGUAGE: {selectedRepo.language || 'Unknown'}
                 </span>
                 <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', background: 'rgba(34, 211, 238, 0.08)', color: 'var(--primary-cyan)', padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(34, 211, 238, 0.15)' }}>
-                  STARS: 1.2k
+                  STARS: {selectedRepo.stargazers_count ?? 0}
                 </span>
                 <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
-                  FORKS: 340
+                  FORKS: {selectedRepo.forks_count ?? 0}
                 </span>
               </div>
             </div>
@@ -563,14 +578,9 @@ const ProjectPage = ({ navigateTo }) => {
             <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.55)' }}>
               <h3 style={{ fontSize: '14px', color: 'white', marginBottom: '14px', fontWeight: 700 }}>Active Node Operators</h3>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                {[
-                  { name: 'pranitabhortakke7', role: 'Owner', color: 'var(--primary-cyan)' },
-                  { name: 'dependabot[bot]', role: 'Security Node', color: '#10b981' },
-                  { name: 'vercel-integration', role: 'Deployment Deploy', color: 'var(--primary-purple)' },
-                  { name: 'alex_coder', role: 'Collaborator', color: 'var(--primary-blue)' }
-                ].map((usr, i) => (
+                {[repoOwner, ...commitAuthors.filter(author => author !== repoOwner)].map((name, i) => (
                   <div
-                    key={i}
+                    key={name}
                     className="glass"
                     style={{
                       padding: '10px 14px',
@@ -582,10 +592,10 @@ const ProjectPage = ({ navigateTo }) => {
                       gap: '10px'
                     }}
                   >
-                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: usr.color, opacity: 0.8 }} />
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: i === 0 ? 'var(--primary-cyan)' : 'var(--primary-blue)', opacity: 0.8 }} />
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'white' }}>{usr.name}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{usr.role}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'white' }}>{name}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{i === 0 ? 'Repository owner' : 'Commit author'}</div>
                     </div>
                   </div>
                 ))}
@@ -786,6 +796,8 @@ const ProjectPage = ({ navigateTo }) => {
           </div>
 
         </div>
+          </>
+        )}
 
       </div>
     </Layout>

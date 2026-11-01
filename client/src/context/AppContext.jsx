@@ -4,10 +4,21 @@ import { API_BASE_URL } from '../config';
 
 const AppContext = createContext();
 
+const initialWorkspaceMessages = [
+  { id: 1, text: "👋 Welcome to the DevPulse AI OS Cockpit. I have mapped your codebase layout.", sender: 'bot' },
+  { id: 2, text: "You can click on files in the repository explorer, view analytics, run security audits, or trigger a command using the Cmd+K Omnibar.", sender: 'bot' }
+];
+
+const initialChatMessages = [
+  { id: 1, text: "🤖 DevBot AI Chat Core initialized. Secure connection established.", sender: "bot" },
+  { id: 2, text: "I have access to your active repository context files. Ask me to explain code, check performance, scan security packages, or write documentation templates.", sender: "bot" }
+];
+
 export const AppContextProvider = ({ children }) => {
   // ===== Routing State =====
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('token'));
+  const [verifiedAuthToken, setVerifiedAuthToken] = useState(null);
 
   // ===== GitHub / Repo State =====
   const [githubConnected, setGithubConnected] = useState(false);
@@ -15,7 +26,7 @@ export const AppContextProvider = ({ children }) => {
   const [githubStats, setGithubStats] = useState(null);
   const [repos, setRepos] = useState([]);
   const [repoLoading, setRepoLoading] = useState(false);
-  const [activeRepo, setActiveRepo] = useState('pranitabhortakke7/devpulse');
+  const [activeRepo, setActiveRepo] = useState('');
   const [repoFilesList, setRepoFilesList] = useState([]);
 
   // ===== Commits State =====
@@ -34,16 +45,10 @@ export const AppContextProvider = ({ children }) => {
   const [activeFile, setActiveFile] = useState('src/App.jsx');
 
   // ===== Workspace / DevBot Chat State =====
-  const [workspaceMessages, setWorkspaceMessages] = useState([
-    { id: 1, text: "👋 Welcome to the DevPulse AI OS Cockpit. I have mapped your codebase layout.", sender: 'bot' },
-    { id: 2, text: "You can click on files in the repository explorer, view analytics, run security audits, or trigger a command using the Cmd+K Omnibar.", sender: 'bot' }
-  ]);
+  const [workspaceMessages, setWorkspaceMessages] = useState(initialWorkspaceMessages);
 
   // ===== Immersive AI Chat State =====
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, text: "🤖 DevBot AI Chat Core initialized. Secure connection established.", sender: "bot" },
-    { id: 2, text: "I have access to your active repository context files. Ask me to explain code, check performance, scan security packages, or write documentation templates.", sender: "bot" }
-  ]);
+  const [chatMessages, setChatMessages] = useState(initialChatMessages);
 
   // ===== Changelog Generator State =====
   const [changelogContent, setChangelogContent] = useState('');
@@ -73,12 +78,37 @@ export const AppContextProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    setGithubChecked(false);
+    setGithubConnected(false);
+    setVerifiedAuthToken(null);
+    setGithubStats(null);
+    setRepos([]);
+    setRepoLoading(false);
+    setActiveRepo('');
+    setRepoFilesList([]);
+    setCommits([]);
+    setCommitsLoading(false);
+    setAuditData(null);
+    setAuditLoading(false);
+    setAnalyticsData(null);
+    setCodeContent('');
+    setActiveFile('src/App.jsx');
+    setWorkspaceMessages(initialWorkspaceMessages);
+    setChatMessages(initialChatMessages);
+    setChangelogContent('');
+    setChangelogLoading(false);
+    setReadmeContent('');
+    setReadmeLoading(false);
+  }, [authToken]);
+
+  useEffect(() => {
     let cancelled = false;
     setGithubChecked(false);
+    setGithubConnected(false);
+    setVerifiedAuthToken(null);
 
     if (!authToken) {
-      setGithubConnected(false);
-      setGithubChecked(true);
+      if (!cancelled) setGithubChecked(true);
       return () => {
         cancelled = true;
       };
@@ -88,12 +118,16 @@ export const AppContextProvider = ({ children }) => {
       headers: { Authorization: `Bearer ${authToken}` }
     })
       .then(response => {
-        if (!cancelled) setGithubConnected(!!response.data.githubConnected);
+        if (!cancelled) {
+          setGithubConnected(!!response.data.githubConnected);
+          setVerifiedAuthToken(authToken);
+        }
       })
       .catch(err => {
         if (!cancelled) {
           console.error('Failed to check GitHub connection:', err);
           setGithubConnected(false);
+          setVerifiedAuthToken(authToken);
         }
       })
       .finally(() => {
@@ -106,58 +140,64 @@ export const AppContextProvider = ({ children }) => {
   }, [authToken]);
 
   useEffect(() => {
-    if (!githubChecked || !githubConnected || !authToken) {
+    if (!githubChecked || !githubConnected || !authToken || verifiedAuthToken !== authToken) {
       setRepos([]);
       setGithubStats(null);
       setRepoLoading(false);
+      setActiveRepo('');
       return;
     }
 
-    const fetchRepos = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+    let cancelled = false;
 
+    const fetchRepos = async () => {
       try {
         setRepoLoading(true);
         const response = await axios.get(`${API_BASE_URL}/api/github/repos`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${authToken}` }
         });
-        setRepos(response.data);
-        if (response.data.length > 0) {
-          setActiveRepo(response.data[0].full_name);
-        }
+        if (cancelled) return;
+        const loadedRepos = response.data;
+        setRepos(loadedRepos);
+        setActiveRepo(currentRepo =>
+          loadedRepos.some(repo => repo.full_name === currentRepo)
+            ? currentRepo
+            : loadedRepos[0]?.full_name || ''
+        );
       } catch (err) {
-        console.error('Failed to fetch repos:', err);
+        if (!cancelled) console.error('Failed to fetch repos:', err);
       } finally {
-        setRepoLoading(false);
+        if (!cancelled) setRepoLoading(false);
+      }
+    };
+
+    const fetchGithubStats = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/github/stats`, {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        if (!cancelled) setGithubStats(response.data);
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch GitHub stats:', err);
       }
     };
 
     fetchRepos();
-
-    const fetchGithubStats = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/github/stats`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setGithubStats(response.data);
-      } catch (err) {
-        console.error('Failed to fetch GitHub stats:', err);
-      }
-    };
-
     fetchGithubStats();
 
-  }, [githubChecked, githubConnected, authToken]);
+    return () => {
+      cancelled = true;
+    };
+  }, [githubChecked, githubConnected, authToken, verifiedAuthToken]);
 
   // ===== Fetch commits for the selected repository =====
   useEffect(() => {
+    let cancelled = false;
+
     const fetchCommits = async () => {
-      const token = localStorage.getItem('token');
-      if (!githubChecked || !githubConnected || !token || !activeRepo) {
+      if (!githubChecked || !githubConnected || verifiedAuthToken !== authToken || !authToken || !activeRepo) {
         setCommits([]);
+        setCommitsLoading(false);
         return;
       }
 
@@ -165,91 +205,108 @@ export const AppContextProvider = ({ children }) => {
         setCommitsLoading(true);
         const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(`${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${authToken}` }
         });
-        setCommits(response.data || []);
+        if (!cancelled) setCommits(response.data || []);
       } catch (err) {
-        console.error('Failed to fetch commits:', err);
-        setCommits([]);
+        if (!cancelled) {
+          console.error('Failed to fetch commits:', err);
+          setCommits([]);
+        }
       } finally {
-        setCommitsLoading(false);
+        if (!cancelled) setCommitsLoading(false);
       }
     };
 
     fetchCommits();
-  }, [activeRepo, githubChecked, githubConnected, authToken]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRepo, githubChecked, githubConnected, authToken, verifiedAuthToken]);
 
   // ===== Sync code view / files / security audit / analytics when repository changes =====
   useEffect(() => {
-    const fetchFileContent = async () => {
-      const token = localStorage.getItem('token');
-      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
+    let cancelled = false;
 
+    if (!githubChecked || !githubConnected || verifiedAuthToken !== authToken || !authToken || !activeRepo) {
+      setRepoFilesList([]);
+      setCodeContent('');
+      setAuditData(null);
+      setAuditLoading(false);
+      setAnalyticsData(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setRepoFilesList([]);
+    setCodeContent('');
+    setAuditData(null);
+    setAuditLoading(false);
+    setAnalyticsData(null);
+
+    const fetchFileContent = async () => {
       try {
         const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
           `${API_BASE_URL}/api/github/repos/${repoName}/file?owner=${encodeURIComponent(owner)}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
-        setCodeContent(response.data.content);
-        setActiveFile(response.data.path);
+        if (!cancelled) {
+          setCodeContent(response.data.content);
+          setActiveFile(response.data.path);
+        }
       } catch (err) {
-        console.error('Failed to fetch file:', err);
-        setCodeContent('// Could not load file content');
+        if (!cancelled) {
+          console.error('Failed to fetch file:', err);
+          setCodeContent('// Could not load file content');
+        }
       }
     };
 
     const fetchFilesList = async () => {
-      const token = localStorage.getItem('token');
-      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
       try {
         const [owner, repoName] = activeRepo.split('/');
         const response = await axios.get(
           `${API_BASE_URL}/api/github/repos/${repoName}/files?owner=${encodeURIComponent(owner)}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
-        setRepoFilesList(response.data.files);
+        if (!cancelled) setRepoFilesList(response.data.files);
       } catch (err) {
-        console.error('Failed to fetch files list:', err);
+        if (!cancelled) console.error('Failed to fetch files list:', err);
       }
     };
 
     const fetchSecurityAudit = async () => {
-      const token = localStorage.getItem('token');
-      if (!githubChecked || !githubConnected || !token || !activeRepo) return;
       try {
         setAuditLoading(true);
         const [owner, repoName] = activeRepo.split('/');
         const params = new URLSearchParams({ repo: repoName, owner });
         const response = await axios.get(
           `${API_BASE_URL}/api/github/security/audit?${params}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
-        setAuditData(response.data);
+        if (!cancelled) setAuditData(response.data);
       } catch (err) {
-        console.error('Security audit failed:', err);
+        if (!cancelled) console.error('Security audit failed:', err);
       } finally {
-        setAuditLoading(false);
+        if (!cancelled) setAuditLoading(false);
       }
     };
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
-      const token = localStorage.getItem('token');
-      if (!githubChecked || !githubConnected || !token || !activeRepo) {
-        setAnalyticsData(null);
-        return;
-      }
-
       try {
         const [owner, repoName] = activeRepo.split('/');
 
         // Fetch commits for analytics
         const commitsRes = await axios.get(
           `${API_BASE_URL}/api/github/repos/${repoName}/commits?owner=${encodeURIComponent(owner)}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
 
+        if (cancelled) return;
         const commits = commitsRes.data || [];
 
         // Calculate real metrics
@@ -279,8 +336,10 @@ export const AppContextProvider = ({ children }) => {
           lastCommit: commits[0]?.date || null
         });
       } catch (err) {
-        console.error('Analytics fetch failed:', err);
-        setAnalyticsData(null);
+        if (!cancelled) {
+          console.error('Analytics fetch failed:', err);
+          setAnalyticsData(null);
+        }
       }
     };
 
@@ -288,7 +347,11 @@ export const AppContextProvider = ({ children }) => {
     fetchFilesList();
     fetchSecurityAudit();
     fetchAnalytics();
-  }, [activeRepo, githubChecked, githubConnected, authToken]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRepo, githubChecked, githubConnected, authToken, verifiedAuthToken]);
 
   useEffect(() => {
     if (!githubChecked || !githubConnected) {

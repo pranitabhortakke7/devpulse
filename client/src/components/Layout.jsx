@@ -409,7 +409,11 @@ const Layout = ({ children, currentPath = '/', navigateTo }) => {
 
           {localStorage.getItem('token') ? (
             <span
-              onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigateTo('/login'); }}
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.replace('/login');
+              }}
               style={{ color: 'white', textDecoration: 'none', cursor: 'pointer', transition: 'opacity 0.2s' }}
               onMouseEnter={(e) => e.target.style.opacity = 0.8}
               onMouseLeave={(e) => e.target.style.opacity = 1}

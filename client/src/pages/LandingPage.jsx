@@ -8,19 +8,19 @@ import { useAppContext } from '../context/AppContext';
 const LandingPage = ({ navigateTo }) => {
   // Landing page simulated terminal typing
   const [heroTerminalLines, setHeroTerminalLines] = useState([
-    { text: 'root@devpulse:~$ devpulse sync --repo pranitabhortakke7/devpulse', type: 'cmd' }
+    { text: 'root@devpulse:~$ devpulse sync', type: 'cmd' }
   ]);
 
   // Typing simulator on landing page hero terminal
   useEffect(() => {
     let isMounted = true;
     const scripts = [
-      { delay: 1000, text: 'root@devpulse:~$ devpulse connect --github pranitabhortakke7', type: 'cmd' },
+      { delay: 1000, text: 'root@devpulse:~$ devpulse connect --github', type: 'cmd' },
       { delay: 1800, text: '✓ GitHub OAuth authenticated. 11 repositories synced.', type: 'success' },
       { delay: 2500, text: 'root@devpulse:~$ devpulse chat --devbot "explain my codebase"', type: 'cmd' },
       { delay: 3500, text: '🤖 DevBot AI initialized. Groq LLaMA 3.3 70B connected.', type: 'info' },
       { delay: 4200, text: '✓ AI response generated in 0.8s.', type: 'success' },
-      { delay: 5000, text: 'root@devpulse:~$ devpulse audit --security --repo devpulse', type: 'cmd' },
+      { delay: 5000, text: 'root@devpulse:~$ devpulse audit --security', type: 'cmd' },
       { delay: 5800, text: '🛡️ Scanning 274 dependencies via OSV database...', type: 'info' },
       { delay: 6500, text: '✓ Audit complete. 4 vulnerabilities detected. Fix available.', type: 'success' },
       { delay: 7200, text: 'root@devpulse:~$ devpulse generate --changelog', type: 'cmd' },
@@ -40,7 +40,7 @@ const LandingPage = ({ navigateTo }) => {
     // Reset loop after 18 seconds
     const resetTimer = setTimeout(() => {
       if (isMounted) {
-        setHeroTerminalLines([{ text: 'root@devpulse:~$ devpulse sync --repo pranitabhortakke7/devpulse', type: 'cmd' }]);
+        setHeroTerminalLines([{ text: 'root@devpulse:~$ devpulse sync', type: 'cmd' }]);
       }
     }, 18000);
     timers.push(resetTimer);

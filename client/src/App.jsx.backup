@@ -247,7 +247,7 @@ const LiveActivityFeed = () => {
   const [events, setEvents] = useState([
     { id: 1, time: '15:20:11', desc: 'Sync complete: 12 repository files vectorised.', type: 'info' },
     { id: 2, time: '15:22:45', desc: 'AI refactor patch applied inside Layout.jsx.', type: 'success' },
-    { id: 3, time: '15:25:02', desc: 'Commit #ef435a pushed by pranitabhortakke7.', type: 'cmd' },
+    { id: 3, time: '15:25:02', desc: 'Commit #ef435a pushed by the repository owner.', type: 'cmd' },
     { id: 4, time: '15:28:14', desc: 'Vulnerability scan complete: 0 critical alerts.', type: 'success' },
     { id: 5, time: '15:30:01', desc: 'API handshake request: 84ms latency score.', type: 'info' }
   ]);
@@ -353,7 +353,7 @@ const ProjectPlanet = () => {
 
     const particles = [
       { radius: 55, speed: 0.008, size: 4, color: primaryCyan, label: 'commit: #ef435a' },
-      { radius: 80, speed: -0.006, size: 5, color: primaryPurple, label: 'author: pranitabhortakke7' },
+      { radius: 80, speed: -0.006, size: 5, color: primaryPurple, label: 'repository owner' },
       { radius: 110, speed: 0.004, size: 4.5, color: primaryBlue, label: 'action: merge release-v1.1.0' },
       { radius: 70, speed: 0.009, size: 3, color: '#10b981', label: 'scan: vulnerability safe' }
     ];
@@ -525,7 +525,7 @@ function App() {
   };
 
   // Main UI States
-  const [activeRepo, setActiveRepo] = useState('pranitabhortakke7/devpulse');
+  const [activeRepo, setActiveRepo] = useState('');
   
   const [activeTab, setActiveTab] = useState('chat'); // chat, code, search, security, analytics
   const [botStatus, setBotStatus] = useState('online'); // online, busy
@@ -610,7 +610,7 @@ function App() {
 
   // Landing page simulated terminal typing
   const [heroTerminalLines, setHeroTerminalLines] = useState([
-    { text: 'root@devpulse:~$ devpulse sync --repo pranitabhortakke7/devpulse', type: 'cmd' }
+    { text: 'root@devpulse:~$ devpulse sync', type: 'cmd' }
   ]);
 
   // Sync code view when repository changes
@@ -730,12 +730,12 @@ function App() {
     
     let isMounted = true;
     const scripts = [
-      { delay: 1000, text: 'root@devpulse:~$ devpulse connect --github pranitabhortakke7', type: 'cmd' },
+      { delay: 1000, text: 'root@devpulse:~$ devpulse connect --github', type: 'cmd' },
       { delay: 1800, text: '✓ GitHub OAuth authenticated. 11 repositories synced.', type: 'success' },
       { delay: 2500, text: 'root@devpulse:~$ devpulse chat --devbot "explain my codebase"', type: 'cmd' },
       { delay: 3500, text: '🤖 DevBot AI initialized. Groq LLaMA 3.3 70B connected.', type: 'info' },
       { delay: 4200, text: '✓ AI response generated in 0.8s.', type: 'success' },
-      { delay: 5000, text: 'root@devpulse:~$ devpulse audit --security --repo devpulse', type: 'cmd' },
+      { delay: 5000, text: 'root@devpulse:~$ devpulse audit --security', type: 'cmd' },
       { delay: 5800, text: '🛡️ Scanning 274 dependencies via OSV database...', type: 'info' },
       { delay: 6500, text: '✓ Audit complete. 4 vulnerabilities detected. Fix available.', type: 'success' },
       { delay: 7200, text: 'root@devpulse:~$ devpulse generate --changelog', type: 'cmd' },
@@ -755,7 +755,7 @@ function App() {
     // Reset loop after 18 seconds
     const resetTimer = setTimeout(() => {
       if (isMounted) {
-        setHeroTerminalLines([{ text: 'root@devpulse:~$ devpulse sync --repo pranitabhortakke7/devpulse', type: 'cmd' }]);
+        setHeroTerminalLines([{ text: 'root@devpulse:~$ devpulse sync', type: 'cmd' }]);
       }
     }, 18000);
     timers.push(resetTimer);
@@ -3441,8 +3441,7 @@ function App() {
                   cursor: 'pointer'
                 }}
               >
-                <option value="pranitabhortakke7/devpulse" style={{ background: '#050816' }}>pranitabhortakke7/devpulse</option>
-                <option value="vercel/next.js" style={{ background: '#050816' }}>vercel/next.js</option>
+                {repos.map(repo => <option key={repo.id} value={repo.full_name}>{repo.full_name}</option>)}
               </select>
             </div>
           </div>
@@ -3577,7 +3576,7 @@ function App() {
                 <h3 style={{ fontSize: '14px', color: 'white', marginBottom: '14px', fontWeight: 700 }}>Active Node Operators</h3>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   {[
-                    { name: 'pranitabhortakke7', role: 'Owner', color: 'var(--primary-cyan)' },
+                    { name: 'repository owner', role: 'Owner', color: 'var(--primary-cyan)' },
                     { name: 'dependabot[bot]', role: 'Security Node', color: '#10b981' },
                     { name: 'vercel-integration', role: 'Deployment Deploy', color: 'var(--primary-purple)' },
                     { name: 'alex_coder', role: 'Collaborator', color: 'var(--primary-blue)' }
