@@ -278,57 +278,6 @@ const ProfilePage = ({ navigateTo }) => {
               </div>
             </div>
 
-            {/* Productivity Trends */}
-            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ fontSize: '18px', color: 'white', margin: 0 }}>Productivity Trends</h3>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Trend score</span>
-              </div>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {[
-                  { label: 'Velocity Index', value: '92%', accent: 'var(--primary-cyan)' },
-                  { label: 'Review Efficiency', value: '87%', accent: 'var(--primary-purple)' },
-                  { label: 'AI Collaboration', value: '74%', accent: 'var(--primary-blue)' }
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'grid', gap: '6px', padding: '14px 16px', borderRadius: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.label}</span>
-                      <span style={{ color: item.accent, fontWeight: 700, fontSize: '13px' }}>{item.value}</span>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '999px', height: '8px', overflow: 'hidden' }}>
-                      <div style={{ width: item.value, height: '100%', background: item.accent, borderRadius: '999px' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Secure Keys */}
-            <div className="glass" style={{ padding: '24px', background: 'rgba(5, 8, 22, 0.72)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div>
-                  <h3 style={{ fontSize: '18px', color: 'white', margin: 0 }}>Secure Keys</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>Manage API keys and authentication tokens for DevBot integrations.</p>
-                </div>
-                <Key size={18} color="var(--primary-cyan)" />
-              </div>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {[
-                  { label: 'devpulse-ci', status: 'active' },
-                  { label: 'devbot-api', status: 'active' },
-                  { label: 'analytics-read', status: 'revoked' }
-                ].map((key, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: '14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div>
-                      <div style={{ color: 'white', fontSize: '13px' }}>{key.label}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{key.status === 'active' ? 'Active key' : 'Revoked'}</div>
-                    </div>
-                    <span style={{ fontSize: '11px', color: { active: '#34d399', revoked: '#f97316' }[key.status], fontWeight: 700, textTransform: 'uppercase' }}>{key.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Logout */}
             <button
               onClick={handleLogout}
